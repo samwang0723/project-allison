@@ -57,7 +57,7 @@ class KnowledgeBase:
         return output, links
 
     def decorate_df_with_embeddings(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df[df.num_tokens <= 2046]
+        df = df[df.num_tokens <= self.MAX_NUM_TOKENS]
         df["embeddings"] = df.body.apply(
             lambda x: self.__get_embeddings(x, self.DOC_MODEL)
         )
@@ -68,7 +68,8 @@ class KnowledgeBase:
         return result["data"][0]["embedding"]
 
     def __vector_similarity(self, x: list[float], y: list[float]) -> float:
-        return np.dot(np.array(x), np.array(y))
+        xx = x[: len(y)]
+        return np.dot(np.array(xx), np.array(y))
 
     def __order_document_sections_by_query_similarity(
         self, query: str, doc_embeddings: pd.DataFrame
@@ -92,9 +93,11 @@ class KnowledgeBase:
         for section_index in range(len(doc_embeddings)):
             # Add contexts until we run out of space.
             document_section = doc_embeddings.loc[section_index]
+            if document_section.num_tokens <= 200:
+                continue
 
             chosen_sections_len += document_section.num_tokens + separator_len
-            if chosen_sections_len > self.MAX_SECTION_LEN:
+            if chosen_sections_len > 3000:
                 break
 
             chosen_sections.append(
@@ -164,7 +167,11 @@ def main():
         response, links = kb.answer_query_with_context(question, df)
         print(
             colored(
-                "\nAnswer: \n\n\t" + response + "\n\nLinks: \n\n\t" + links + "\n\n",
+                "\nAnswer: \n\n\t"
+                + response
+                + "\n\nLinks: \n\n\t"
+                + str(links)
+                + "\n\n",
                 "green",
             )
         )
