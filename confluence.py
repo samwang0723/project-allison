@@ -52,7 +52,7 @@ class Wiki:
 
         return pages
 
-    def collect_content_dataframe(self, pages, save_csv=True) -> pd.DataFrame:
+    def collect_content_dataframe(self, pages) -> pd.DataFrame:
         collect = []
         for page in pages:
             title = page["title"]
@@ -80,7 +80,5 @@ class Wiki:
         # Calculate the embeddings
         # Limit first to pages with less than 2046 tokens
         df = df[df.num_tokens <= self.MAX_NUM_TOKENS]
-        if save_csv:
-            df.to_csv("material.csv", index=False)
 
         return df
