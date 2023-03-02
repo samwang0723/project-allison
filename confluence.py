@@ -2,6 +2,7 @@
 
 import os
 import nltk
+import csv
 import pandas as pd
 from dotenv import load_dotenv
 from atlassian import Confluence
@@ -28,28 +29,14 @@ class Wiki:
 
         return confluence
 
-    def get_all_pages(self, confluence, space="COM"):
-        # There is a limit of how many pages we can retrieve one at a time
-        # so we retrieve 100 at a time and loop until we know we retrieved all of
-        # them.
-        keep_going = True
-        start = 0
+    def get_all_pages_from_ids(self, confluence):
         pages = []
-        while keep_going:
-            results = confluence.get_all_pages_from_space(
-                space,
-                start=start,
-                limit=self.CRAWL_LIMIT,
-                status=None,
-                expand="body.storage",
-                content_type="page",
-            )
-            pages.extend(results)
-            if len(results) < self.CRAWL_LIMIT:
-                keep_going = False
-            else:
-                start = start + self.CRAWL_LIMIT
-
+        with open("./data/source.csv") as csv_file:
+            csv_reader = csv.DictReader(csv_file)
+            for row in csv_reader:
+                val = row["page_id"]
+                page = confluence.get_page_by_id(val, expand="body.storage")
+                pages.append(page)
         return pages
 
     def collect_content_dataframe(self, pages) -> pd.DataFrame:
@@ -58,23 +45,48 @@ class Wiki:
             title = page["title"]
             link = self.URL + "/wiki/spaces/COM/pages/" + page["id"]
             htmlbody = page["body"]["storage"]["value"]
-            htmlParse = BeautifulSoup(htmlbody, "html.parser")
+            soup = BeautifulSoup(htmlbody, "html.parser")
             body = []
-            for para in htmlParse.find_all("p"):
-                # Keep only a sentence if there is a subject and a verb
-                # Otherwise, we assume the sentence does not contain enough useful information
-                # to be included in the context for openai
-                sentence = para.get_text()
-                tokens = nltk.tokenize.word_tokenize(sentence)
+
+            header_tags = soup.find_all(["h1", "h2", "h3"])
+            current_content = ""
+
+            for i in range(len(header_tags)):
+                # Extract the text from the current header tag
+                header_text = header_tags[i].get_text().strip()
+
+                # Extract the text of all the siblings until the next header tag
+                siblings = header_tags[i].next_siblings
+                content = [
+                    sibling
+                    for sibling in siblings
+                    if sibling.name != "h1"
+                    and sibling.name != "h2"
+                    and sibling.name != "h3"
+                ]
+
+                # Concatenate the content and add it to the result array
+                current_content = (
+                    header_text
+                    + ": "
+                    + " ".join([c.get_text().strip() for c in content])
+                )
+
+                if "changelog" in current_content.lower():
+                    continue
+
+                tokens = nltk.tokenize.word_tokenize(current_content)
                 token_tags = nltk.pos_tag(tokens)
                 tags = [x[1] for x in token_tags]
                 if any([x[:2] == "VB" for x in tags]):  # There is at least one verb
                     if any([x[:2] == "NN" for x in tags]):  # There is at least noun
-                        body.append(sentence)
-            body = ". ".join(body)
-            # Calculate number of tokens
-            tokens = self.TOKENIZER.encode(body)
-            collect += [(title, link, body, len(tokens))]
+                        body.append(current_content + " ")
+
+            for item in body:
+                # Calculate number of tokens
+                tokens = self.TOKENIZER.encode(item)
+                if len(tokens) >= 100:
+                    collect += [(title, link, title + " - " + item, len(tokens))]
 
         df = pd.DataFrame(collect, columns=["title", "link", "body", "num_tokens"])
         # Calculate the embeddings
