@@ -15,7 +15,6 @@ from transformers import GPT2TokenizerFast
 class KnowledgeBase:
     COMPLETIONS_MODEL = "gpt-3.5-turbo"
     EMBEDDING_MODEL = "text-embedding-ada-002"
-    DOC_MODEL = "text-search-curie-doc-001"
     COMPLETIONS_API_PARAMS = {
         # We use temperature of 0.0 because it gives the most predictable, factual answer.
         "temperature": 0.0,
@@ -61,10 +60,15 @@ class KnowledgeBase:
 
         return output, deduped_links
 
+    def decorate_df_with_embeddings(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df[df.num_tokens <= self.MAX_NUM_TOKENS]
+        df["embeddings"] = df.body.apply(lambda x: self.__get_embeddings(x))
+        return df
+
     def compute_doc_embeddings(
         self, df: pd.DataFrame
     ) -> dict[tuple[str, str], list[float]]:
-        return {idx: self.__get_embeddings(r.body) for idx, r in df.iterrows()}
+        return {idx: r["embeddings"] for idx, r in df.iterrows()}
 
     def __get_embeddings(self, text: str, model: str = EMBEDDING_MODEL) -> list[float]:
         result = openai.Embedding.create(model=model, input=text)
@@ -162,6 +166,7 @@ def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
     confluence = wiki.connect_to_confluence()
     pages = wiki.get_all_pages_from_ids(confluence)
     df = wiki.collect_content_dataframe(pages)
+    df = kb.decorate_df_with_embeddings(df)
     df.to_csv("./data/material.csv", index=False)
 
     print(colored("Confluence download and index completed!", "yellow"))
