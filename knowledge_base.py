@@ -186,7 +186,7 @@ def main():
             break
 
         response, links = kb.answer_query_with_context(
-            question, df, document_embeddings, True
+            question, df, document_embeddings
         )
         print(
             colored(
