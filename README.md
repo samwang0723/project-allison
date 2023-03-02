@@ -7,6 +7,10 @@ Training example with openai
     $ source ./venv/bin/activate
     (venv)$ pip install -r requirements.txt
 
+### Refresh all installed library into requirements.txt
+
+    (venv)$ pip freeze > requirements.txt
+
 ## Activate / Deactivate virtual env
 
     $ source ./venv/bin/activate
