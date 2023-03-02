@@ -4,12 +4,15 @@ import os
 import openai
 import datetime
 import tiktoken
+import time
+import re
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 from termcolor import colored
 from confluence import Wiki
 from transformers import GPT2TokenizerFast
+from collections import deque
 
 
 class KnowledgeBase:
@@ -34,7 +37,8 @@ class KnowledgeBase:
         openai.api_key = os.environ["OPENAI_API_KEY"]
         self.encoding = tiktoken.get_encoding(self.ENCODING)
         self.separator_len = len(self.encoding.encode(self.SEPARATOR))
-        self.prompt = ""
+        self.last_response = deque(maxlen=3)
+        self.question_history = deque(maxlen=20)
 
     def answer_query_with_context(
         self,
@@ -44,19 +48,34 @@ class KnowledgeBase:
         show_prompt: bool = False,
     ) -> str:
         prompt, links = self.__construct_prompt(query, document_embeddings, df)
+        prompt = "\n".join(self.last_response) + prompt
         deduped_links = list(set(links))
 
         if show_prompt:
             print(colored("Prompt:", "red"), prompt)
+        try:
+            response = openai.ChatCompletion.create(
+                **self.COMPLETIONS_API_PARAMS,
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": query},
+                ],
+            )
+        except openai.errors.APIConnectionError:
+            print(colored("Openai connection reset, wait for 5 secs", "red"))
+            # If the connection is reset, wait for 5 seconds and retry
+            time.sleep(5)
+            response = openai.ChatCompletion.create(
+                **self.COMPLETIONS_API_PARAMS,
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": query},
+                ],
+            )
 
-        response = openai.ChatCompletion.create(
-            **self.COMPLETIONS_API_PARAMS,
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": query},
-            ]
-        )
         output = response["choices"][0]["message"]["content"].strip(" \n")
+        self.last_response.append(output)
+        self.question_history.append(query)
 
         return output, deduped_links
 
@@ -174,6 +193,21 @@ def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
     return df
 
 
+def print_result(response, links):
+    print(colored("\nAnswer: ", "green"))
+
+    pattern = re.compile(r"```(.+?)```", re.DOTALL)
+    matches = re.findall(pattern, response)
+    if matches:
+        for match in matches:
+            response = response.replace(
+                f"```{match}```", colored(f"```{match}```", "yellow")
+            )
+    print("\t" + response)
+    print(colored("\n\nLinks: ", "green"))
+    print("\t" + str(links) + "\n\n")
+
+
 def main():
     load_dotenv()
 
@@ -183,26 +217,55 @@ def main():
     # TODO: This is using runtime computation of embeddings, which is slow.
     # We should save the embeddings to a file and load them from there.
     document_embeddings = kb.compute_doc_embeddings(df)
+    prompt_on = False
 
     while True:
         # Note: Python 2.x users should use raw_input, the equivalent of 3.x's input
-        question = input("Please type your question: ")
+        print("--------------------")
+        question = input(colored("Please type your question: ", "cyan"))
         if question == "exit":
             break
+        elif question == "show-prompt":
+            prompt_on = True
+            print(colored("Prompt is now on for next conversation", "cyan"))
+            continue
+        elif question == "hide-prompt":
+            prompt_on = False
+            print(colored("Prompt is now off for next conversation", "cyan"))
+            continue
+        elif question == "clear":
+            kb.last_response.clear()
+            kb.question_history.clear()
+            print(colored("Conversation history cleared", "cyan"))
+            continue
+        elif question == "history":
+            print(
+                colored("\nConversation history:\n\n\t．", "cyan"),
+                "\n\t．".join(kb.question_history),
+            )
+            continue
+        elif question == "help":
+            print(
+                colored(
+                    """
+    exit: exit the program
+    show-prompt: show prompt for next conversation
+    hide-prompt: hide prompt for next conversation
+    clear: clear conversation history
+    history: show conversation history
+    help: show this help message
+                    """,
+                    "cyan",
+                )
+            )
+            continue
 
         response, links = kb.answer_query_with_context(
-            question, df, document_embeddings
+            question, df, document_embeddings, prompt_on
         )
-        print(
-            colored(
-                "\nAnswer: \n\n\t"
-                + response
-                + "\n\nLinks: \n\n\t"
-                + str(links)
-                + "\n\n",
-                "green",
-            )
-        )
+        print_result(response, links)
+
+        prompt_on = False
 
 
 if __name__ == "__main__":

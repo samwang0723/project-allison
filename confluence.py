@@ -11,20 +11,55 @@ from bs4 import BeautifulSoup
 
 
 class Wiki:
-    URL = "https://mcoproduct.atlassian.net"
     CRAWL_LIMIT = 100
     TOKENIZER = GPT2TokenizerFast.from_pretrained("gpt2")
     MAX_NUM_TOKENS = 2046
 
     def __init__(self):
         load_dotenv()
-
+        self.host = os.environ["CONFLUENCE_HOST"]
         self.username = os.environ["CONFLUENCE_API_USER"]
         self.access_token = os.environ["CONFLUENCE_API_TOKEN"]
 
+    def __printProgressBar(
+        self,
+        iteration,
+        total,
+        prefix="",
+        suffix="",
+        decimals=1,
+        length=100,
+        fill="█",
+        printEnd="\r",
+    ):
+        """
+        Call in a loop to create terminal progress bar
+        @params:
+            iteration   - Required  : current iteration (Int)
+            total       - Required  : total iterations (Int)
+            prefix      - Optional  : prefix string (Str)
+            suffix      - Optional  : suffix string (Str)
+            decimals    - Optional  : positive number of decimals in percent complete (Int)
+            length      - Optional  : character length of bar (Int)
+            fill        - Optional  : bar fill character (Str)
+            printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+        """
+        percent = ("{0:." + str(decimals) + "f}").format(
+            100 * (iteration / float(total))
+        )
+        filledLength = int(length * iteration // total)
+        bar = fill * filledLength + "-" * (length - filledLength)
+        print(f"\r{prefix} |{bar}| {percent}% {suffix}", end=printEnd)
+        # Print New Line on Complete
+        if iteration == total:
+            print()
+
     def connect_to_confluence(self) -> Confluence:
         confluence = Confluence(
-            url=self.URL, username=self.username, password=self.access_token, cloud=True
+            url=self.host,
+            username=self.username,
+            password=self.access_token,
+            cloud=True,
         )
 
         return confluence
@@ -33,17 +68,32 @@ class Wiki:
         pages = []
         with open("./data/source.csv") as csv_file:
             csv_reader = csv.DictReader(csv_file)
+
+            l = len(list(csv_reader))
+            i = 0
+            self.__printProgressBar(
+                i, l, prefix="Progress:", suffix="Complete", length=50
+            )
+
             for row in csv_reader:
-                val = row["page_id"]
-                page = confluence.get_page_by_id(val, expand="body.storage")
-                pages.append(page)
+                space = row["space"]
+                id = row["page_id"]
+                page = confluence.get_page_by_id(id, expand="body.storage")
+                pages.append({"space": space, "page": page})
+
+                self.__printProgressBar(
+                    i + 1, l, prefix="Progress:", suffix="Complete", length=50
+                )
+
         return pages
 
     def collect_content_dataframe(self, pages) -> pd.DataFrame:
         collect = []
-        for page in pages:
+        for item in pages:
+            space = item["space"]
+            page = item["page"]
             title = page["title"]
-            link = self.URL + "/wiki/spaces/COM/pages/" + page["id"]
+            link = self.host + "/wiki/spaces/" + space + "/pages/" + page["id"]
             htmlbody = page["body"]["storage"]["value"]
             soup = BeautifulSoup(htmlbody, "html.parser")
             body = []
