@@ -80,7 +80,6 @@ class KnowledgeBase:
         return output, deduped_links
 
     def decorate_df_with_embeddings(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df[df.num_tokens <= self.MAX_NUM_TOKENS]
         df["embeddings"] = df.body.apply(lambda x: self.__get_embeddings(x))
         return df
 
@@ -128,7 +127,7 @@ class KnowledgeBase:
             df2 = df.sort_index()
             document_section = df2.loc[section_index]
 
-            chosen_sections_len += document_section.num_tokens + self.separator_len
+            chosen_sections_len += int(document_section.num_tokens) + self.separator_len
             if chosen_sections_len > self.MAX_SECTION_LEN:
                 break
 
@@ -148,38 +147,8 @@ def parse_numbers(s):
     return [float(x) for x in s.strip("[]").split(",")]
 
 
-def get_confluence_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
-    # Today's date
-    today = datetime.datetime.today()
-    # Current file where the embeddings of our internal Confluence document is saved
-    Confluence_embeddings_file = "./data/material.csv"
-    if os.path.isfile(Confluence_embeddings_file):
-        # Run the embeddings again if the file is more than a week old
-        # Otherwise, read the save file
-        Confluence_embeddings_file_date = datetime.datetime.fromtimestamp(
-            os.path.getmtime(Confluence_embeddings_file)
-        )
-        delta = today - Confluence_embeddings_file_date
-        if delta.days > 7:
-            DOC_title_content_embeddings = update_internal_doc_embeddings(kb)
-        else:
-            DOC_title_content_embeddings = pd.read_csv(
-                Confluence_embeddings_file, dtype={"embeddings": object}
-            )
-            DOC_title_content_embeddings["embeddings"] = DOC_title_content_embeddings[
-                "embeddings"
-            ].apply(lambda x: parse_numbers(x))
-            print(
-                colored("Loaded internal document embeddings from local cache", "green")
-            )
-    else:
-        DOC_title_content_embeddings = update_internal_doc_embeddings(kb)
-
-    return DOC_title_content_embeddings
-
-
 def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
-    print(colored("Updating internal document embeddings from Confluence...", "red"))
+    print(colored("Updating internal document embeddings from Confluence...\n", "red"))
 
     wiki = Wiki()
     confluence = wiki.connect_to_confluence()
@@ -188,7 +157,7 @@ def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
     df = kb.decorate_df_with_embeddings(df)
     df.to_csv("./data/material.csv", index=False)
 
-    print(colored("Confluence download and index completed!", "yellow"))
+    print(colored("Confluence download and index completed!\n", "yellow"))
 
     return df
 
@@ -212,7 +181,7 @@ def main():
     load_dotenv()
 
     kb = KnowledgeBase()
-    df = get_confluence_embeddings(kb)
+    df = update_internal_doc_embeddings(kb)
 
     # TODO: This is using runtime computation of embeddings, which is slow.
     # We should save the embeddings to a file and load them from there.

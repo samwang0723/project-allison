@@ -11,48 +11,13 @@ from bs4 import BeautifulSoup
 
 
 class Wiki:
-    CRAWL_LIMIT = 100
     TOKENIZER = GPT2TokenizerFast.from_pretrained("gpt2")
-    MAX_NUM_TOKENS = 2046
 
     def __init__(self):
         load_dotenv()
         self.host = os.environ["CONFLUENCE_HOST"]
         self.username = os.environ["CONFLUENCE_API_USER"]
         self.access_token = os.environ["CONFLUENCE_API_TOKEN"]
-
-    def __printProgressBar(
-        self,
-        iteration,
-        total,
-        prefix="",
-        suffix="",
-        decimals=1,
-        length=100,
-        fill="█",
-        printEnd="\r",
-    ):
-        """
-        Call in a loop to create terminal progress bar
-        @params:
-            iteration   - Required  : current iteration (Int)
-            total       - Required  : total iterations (Int)
-            prefix      - Optional  : prefix string (Str)
-            suffix      - Optional  : suffix string (Str)
-            decimals    - Optional  : positive number of decimals in percent complete (Int)
-            length      - Optional  : character length of bar (Int)
-            fill        - Optional  : bar fill character (Str)
-            printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
-        """
-        percent = ("{0:." + str(decimals) + "f}").format(
-            100 * (iteration / float(total))
-        )
-        filledLength = int(length * iteration // total)
-        bar = fill * filledLength + "-" * (length - filledLength)
-        print(f"\r{prefix} |{bar}| {percent}% {suffix}", end=printEnd)
-        # Print New Line on Complete
-        if iteration == total:
-            print()
 
     def connect_to_confluence(self) -> Confluence:
         confluence = Confluence(
@@ -64,26 +29,30 @@ class Wiki:
 
         return confluence
 
+    def __read_previously_downloaded(self) -> list[str]:
+        downloaded = []
+        with open("./data/material.csv") as downloaded_file:
+            downloaded_reader = csv.DictReader(downloaded_file)
+            for d in downloaded_reader:
+                downloaded.append(d["link"])
+
+        return list(set(downloaded))
+
     def get_all_pages_from_ids(self, confluence):
         pages = []
+        downloaded = self.__read_previously_downloaded()
+
         with open("./data/source.csv") as csv_file:
             csv_reader = csv.DictReader(csv_file)
-
-            l = len(list(csv_reader))
-            i = 0
-            self.__printProgressBar(
-                i, l, prefix="Progress:", suffix="Complete", length=50
-            )
 
             for row in csv_reader:
                 space = row["space"]
                 id = row["page_id"]
-                page = confluence.get_page_by_id(id, expand="body.storage")
-                pages.append({"space": space, "page": page})
-
-                self.__printProgressBar(
-                    i + 1, l, prefix="Progress:", suffix="Complete", length=50
-                )
+                link = self.host + "/wiki/spaces/" + space + "/pages/" + id
+                if link not in downloaded:
+                    print("Downloading: ", link)
+                    page = confluence.get_page_by_id(id, expand="body.storage")
+                    pages.append({"space": space, "page": page})
 
         return pages
 
@@ -135,12 +104,13 @@ class Wiki:
             for item in body:
                 # Calculate number of tokens
                 tokens = self.TOKENIZER.encode(item)
-                if len(tokens) >= 100:
-                    collect += [(title, link, title + " - " + item, len(tokens))]
+                tl = len(tokens)
+                if tl >= 100 and tl <= 2046:
+                    collect += [(title, link, title + " - " + item, tl)]
 
         df = pd.DataFrame(collect, columns=["title", "link", "body", "num_tokens"])
-        # Calculate the embeddings
-        # Limit first to pages with less than 2046 tokens
-        df = df[df.num_tokens <= self.MAX_NUM_TOKENS]
+        # merge existing files
+        old_df = pd.read_csv("./data/material.csv")
+        merged_df = pd.concat([old_df, df])
 
-        return df
+        return merged_df
