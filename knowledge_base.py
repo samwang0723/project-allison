@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import ast
 import openai
 import datetime
 import tiktoken
@@ -80,13 +81,19 @@ class KnowledgeBase:
         return output, deduped_links
 
     def decorate_df_with_embeddings(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["embeddings"] = df.body.apply(lambda x: self.__get_embeddings(x))
+        mask = df["embeddings"].isna()
+        df.loc[mask, "embeddings"] = df.loc[mask, "body"].apply(
+            lambda x: self.__get_embeddings(x)
+        )
         return df
 
     def compute_doc_embeddings(
         self, df: pd.DataFrame
     ) -> dict[tuple[str, str], list[float]]:
-        return {idx: r["embeddings"] for idx, r in df.iterrows()}
+        return {
+            idx: [float(e) for e in ast.literal_eval(r["embeddings"])]
+            for idx, r in df.iterrows()
+        }
 
     def __get_embeddings(self, text: str, model: str = EMBEDDING_MODEL) -> list[float]:
         result = openai.Embedding.create(model=model, input=text)
@@ -182,9 +189,6 @@ def main():
 
     kb = KnowledgeBase()
     df = update_internal_doc_embeddings(kb)
-
-    # TODO: This is using runtime computation of embeddings, which is slow.
-    # We should save the embeddings to a file and load them from there.
     document_embeddings = kb.compute_doc_embeddings(df)
     prompt_on = False
 
