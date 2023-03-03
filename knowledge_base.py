@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
 import os
-import ast
+import json
 import openai
-import datetime
 import tiktoken
 import time
 import re
@@ -80,7 +79,7 @@ class KnowledgeBase:
 
         return output, deduped_links
 
-    def decorate_df_with_embeddings(self, df: pd.DataFrame) -> pd.DataFrame:
+    def calc_embeddings(self, df: pd.DataFrame) -> pd.DataFrame:
         mask = df["embeddings"].isna()
         df.loc[mask, "embeddings"] = df.loc[mask, "body"].apply(
             lambda x: self.__get_embeddings(x)
@@ -91,7 +90,7 @@ class KnowledgeBase:
         self, df: pd.DataFrame
     ) -> dict[tuple[str, str], list[float]]:
         return {
-            idx: [float(e) for e in ast.literal_eval(r["embeddings"])]
+            idx: [float(e) for e in json.loads(r["embeddings"])]
             for idx, r in df.iterrows()
         }
 
@@ -161,8 +160,9 @@ def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
     confluence = wiki.connect_to_confluence()
     pages = wiki.get_all_pages_from_ids(confluence)
     df = wiki.collect_content_dataframe(pages)
-    df = kb.decorate_df_with_embeddings(df)
+    df = kb.calc_embeddings(df)
     df.to_csv("./data/material.csv", index=False)
+    df = pd.read_csv("./data/material.csv")
 
     print(colored("Confluence download and index completed!\n", "yellow"))
 
