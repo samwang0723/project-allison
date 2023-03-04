@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from atlassian import Confluence
 from transformers import GPT2TokenizerFast
 from bs4 import BeautifulSoup
+from rich.progress import track
 
 
 class Wiki:
@@ -44,13 +45,11 @@ class Wiki:
 
         with open("./data/source.csv") as csv_file:
             csv_reader = csv.DictReader(csv_file)
-
-            for row in csv_reader:
+            for row in track(csv_reader, description="[green]Downloading data"):
                 space = row["space"]
                 id = row["page_id"]
                 link = self.host + "/wiki/spaces/" + space + "/pages/" + id
                 if link not in downloaded:
-                    print("Downloading: ", link)
                     page = confluence.get_page_by_id(id, expand="body.storage")
                     pages.append({"space": space, "page": page})
 

@@ -5,14 +5,21 @@ import json
 import openai
 import tiktoken
 import time
-import re
+import string
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
-from termcolor import colored
 from confluence import Wiki
 from transformers import GPT2TokenizerFast
 from collections import deque
+from rich.console import Console
+from rich.syntax import Syntax
+from rich.table import Table
+from rich.panel import Panel
+from rich.console import group
+from rich import box
+
+console = Console(width=90)
 
 
 class KnowledgeBase:
@@ -52,7 +59,7 @@ class KnowledgeBase:
         deduped_links = list(set(links))
 
         if show_prompt:
-            print(colored("Prompt:", "red"), prompt)
+            console.print("Prompt:\n\t" + prompt, style="bold green")
         try:
             response = openai.ChatCompletion.create(
                 **self.COMPLETIONS_API_PARAMS,
@@ -62,7 +69,9 @@ class KnowledgeBase:
                 ],
             )
         except openai.errors.APIConnectionError:
-            print(colored("Openai connection reset, wait for 5 secs", "red"))
+            console.print(
+                "[[ Openai connection reset, wait for 5 secs ]]", style="bold red"
+            )
             # If the connection is reset, wait for 5 seconds and retry
             time.sleep(5)
             response = openai.ChatCompletion.create(
@@ -154,7 +163,9 @@ def parse_numbers(s):
 
 
 def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
-    print(colored("Updating internal document embeddings from Confluence...\n", "red"))
+    console.print(
+        "Updating internal document embeddings from Confluence...", style="bold red"
+    )
 
     wiki = Wiki()
     confluence = wiki.connect_to_confluence()
@@ -164,29 +175,34 @@ def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
     df.to_csv("./data/material.csv", index=False)
     df = pd.read_csv("./data/material.csv")
 
-    print(colored("Confluence download and index completed!\n", "yellow"))
+    console.print("Confluence download and index completed!", style="bold yellow")
 
     return df
 
 
+@group()
 def print_result(response, links):
-    print(colored("\nAnswer: ", "green"))
+    yield Panel("Answer: ", style="bold green", box=box.SIMPLE)
 
-    pattern = re.compile(r"```(.+?)```", re.DOTALL)
-    matches = re.findall(pattern, response)
-    if matches:
-        for match in matches:
-            response = response.replace(
-                f"```{match}```", colored(f"```{match}```", "yellow")
+    parts = response.split("```")
+    for i, part in enumerate(parts):
+        if i % 2 == 1:  # Syntax-highlighted part
+            yield Panel(
+                Syntax(part, "ruby", theme="monokai", line_numbers=True), box=box.SIMPLE
             )
-    print("\t" + response)
-    print(colored("\n\nLinks: ", "green"))
-    print("\t" + str(links) + "\n\n")
+        else:  # Normal part
+            yield Panel(part.strip("\n"), box=box.SIMPLE)
+
+    table = Table(title="", box=box.SIMPLE)
+    table.add_column("References", justify="middle", style="cyan", no_wrap=True)
+    for l in links:
+        table.add_row(l)
+
+    yield Panel(table, box=box.SIMPLE)
 
 
 def main():
     load_dotenv()
-
     kb = KnowledgeBase()
     df = update_internal_doc_embeddings(kb)
     document_embeddings = kb.compute_doc_embeddings(df)
@@ -194,49 +210,59 @@ def main():
 
     while True:
         # Note: Python 2.x users should use raw_input, the equivalent of 3.x's input
-        print("--------------------")
-        question = input(colored("Please type your question: ", "cyan"))
+        console.print("\n")
+        question = console.input("[cyan bold] Question / Command: [/]")
         if question == "exit":
             break
         elif question == "show-prompt":
             prompt_on = True
-            print(colored("Prompt is now on for next conversation", "cyan"))
+            console.print(
+                "Prompt is now [red bold]on[/] for next conversation", style="cyan"
+            )
             continue
         elif question == "hide-prompt":
             prompt_on = False
-            print(colored("Prompt is now off for next conversation", "cyan"))
+            console.print(
+                "Prompt is now [red bold]off[/] for next conversation", style="cyan"
+            )
             continue
         elif question == "clear":
             kb.last_response.clear()
             kb.question_history.clear()
-            print(colored("Conversation history cleared", "cyan"))
+            console.print("Conversation history cleared", style="cyan")
             continue
         elif question == "history":
-            print(
-                colored("\nConversation history:\n\n\t．", "cyan"),
-                "\n\t．".join(kb.question_history),
+            table = Table(title="")
+            table.add_column(
+                "History Records", justify="middle", style="cyan", no_wrap=True
             )
+            for r in kb.question_history:
+                table.add_row(r)
+
+            console.print(table)
             continue
         elif question == "help":
-            print(
-                colored(
-                    """
-    exit: exit the program
-    show-prompt: show prompt for next conversation
-    hide-prompt: hide prompt for next conversation
-    clear: clear conversation history
-    history: show conversation history
-    help: show this help message
-                    """,
-                    "cyan",
-                )
+            table = Table(title="")
+            table.add_column("Command", justify="middle", no_wrap=True)
+            table.add_column("Description", justify="middle", no_wrap=True)
+            table.add_row("[cyan bold]exit[/]", "exit the program")
+            table.add_row(
+                "[cyan bold]show-prompt[/]", "show prompt for next conversation"
             )
+            table.add_row(
+                "[cyan bold]hide-prompt[/]", "hide prompt for next conversation"
+            )
+            table.add_row("[cyan bold]clear[/]", "clear conversation history")
+            table.add_row("[cyan bold]history[/]", "show conversation history")
+            table.add_row("[cyan bold]help[/]", "show this help message")
+
+            console.print(table)
             continue
 
         response, links = kb.answer_query_with_context(
             question, df, document_embeddings, prompt_on
         )
-        print_result(response, links)
+        console.print(Panel(print_result(response, links)))
 
         prompt_on = False
 
