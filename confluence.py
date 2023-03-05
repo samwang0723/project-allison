@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from atlassian import Confluence
 from transformers import GPT2TokenizerFast
 from bs4 import BeautifulSoup
-from rich.progress import track
+from rich.progress import Progress
 
 
 class Wiki:
@@ -32,10 +32,18 @@ class Wiki:
 
     def __read_previously_downloaded(self) -> list[str]:
         downloaded = []
-        with open("./data/material.csv") as downloaded_file:
-            downloaded_reader = csv.DictReader(downloaded_file)
-            for d in downloaded_reader:
-                downloaded.append(d["link"])
+        with open("./data/material.csv") as csvfile:
+            reader = csv.reader(csvfile)
+            num_rows = sum(1 for _ in reader)
+
+        with Progress() as progress:
+            task = progress.add_task("[cyan]Retrieve indexed material", total=num_rows)
+            progress.update(task, advance=1)
+            with open("./data/material.csv") as downloaded_file:
+                downloaded_reader = csv.DictReader(downloaded_file)
+                for d in downloaded_reader:
+                    downloaded.append(d["link"])
+                    progress.update(task, advance=1)
 
         return list(set(downloaded))
 
@@ -43,15 +51,25 @@ class Wiki:
         pages = []
         downloaded = self.__read_previously_downloaded()
 
-        with open("./data/source.csv") as csv_file:
-            csv_reader = csv.DictReader(csv_file)
-            for row in track(csv_reader, description="[green]Downloading data"):
-                space = row["space"]
-                id = row["page_id"]
-                link = self.host + "/wiki/spaces/" + space + "/pages/" + id
-                if link not in downloaded:
-                    page = confluence.get_page_by_id(id, expand="body.storage")
-                    pages.append({"space": space, "page": page})
+        with open("./data/source.csv") as csvfile:
+            reader = csv.reader(csvfile)
+            num_rows = sum(1 for _ in reader)
+
+        with Progress() as progress:
+            task = progress.add_task("[cyan]Download missing content", total=num_rows)
+            progress.update(task, advance=1)
+
+            with open("./data/source.csv") as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    space = row["space"]
+                    id = row["page_id"]
+                    link = self.host + "/wiki/spaces/" + space + "/pages/" + id
+                    if link not in downloaded:
+                        page = confluence.get_page_by_id(id, expand="body.storage")
+                        pages.append({"space": space, "page": page})
+
+                    progress.update(task, advance=1)
 
         return pages
 
