@@ -46,13 +46,14 @@ class KnowledgeBase:
         self.separator_len = len(self.encoding.encode(self.SEPARATOR))
         self.last_response = deque(maxlen=3)
         self.question_history = deque(maxlen=20)
+        self.print_similarity = False
 
     def answer_query_with_context(
         self,
         query: str,
         df: pd.DataFrame,
         show_prompt: bool = False,
-    ) -> str:
+    ):
         prompt, links = self.__construct_prompt(query, df)
         prompt = "\n".join(self.last_response) + prompt
         deduped_links = list(set(links))
@@ -60,12 +61,21 @@ class KnowledgeBase:
         if show_prompt:
             console.print("Prompt:\n\t" + prompt, style="bold green")
         try:
+            start_time = time.time()
             response = openai.ChatCompletion.create(
                 **self.COMPLETIONS_API_PARAMS,
                 messages=[
                     {"role": "system", "content": prompt},
                     {"role": "user", "content": query},
                 ],
+            )
+            end_time = time.time()
+            duration = end_time - start_time
+            console.print(
+                "openai.ChatCompletion - Duration:",
+                duration,
+                "seconds",
+                style="bold red",
             )
         except openai.errors.APIConnectionError:
             console.print(
@@ -102,12 +112,21 @@ class KnowledgeBase:
     def __order_document_sections_by_query_similarity(
         self, query: str, df: pd.DataFrame
     ):
+        start_time = time.time()
         query_embedding = get_embedding(query, engine=self.EMBEDDING_MODEL)
         df["similarity"] = df.embeddings.apply(
             lambda x: cosine_similarity(x, query_embedding)
         )
 
         results = df.sort_values("similarity", ascending=False).head(3)
+        end_time = time.time()
+        duration = end_time - start_time
+        console.print(
+            "cosine_similarity - Duration:",
+            duration,
+            "seconds",
+            style="bold red",
+        )
 
         return results
 
@@ -121,6 +140,14 @@ class KnowledgeBase:
         chosen_sections_len = 0
 
         for _, document_section in most_relevant_document_sections.iterrows():
+            if self.print_similarity:
+                console.print(
+                    f"{document_section.title} - {document_section.similarity}",
+                    style="bold green",
+                )
+            if document_section.similarity < 0.8:
+                continue
+
             chosen_sections_len += int(document_section.num_tokens) + self.separator_len
             if chosen_sections_len > self.MAX_SECTION_LEN:
                 break
@@ -130,8 +157,9 @@ class KnowledgeBase:
             )
             chosen_sections_links.append(document_section.link)
 
-        header = """You are a helpful assistant that can answer questions about 
-        Crypto.com specific knowledge giving below context.\n\nContext:\n"""
+        header = """Please perform as a professional Crypto.com domain expert 
+        that can answer questions about Crypto.com specific knowledge giving below 
+        context.\n\nContext:\n"""
         prompt = header + "".join(chosen_sections)
 
         return (prompt, chosen_sections_links)
@@ -177,12 +205,13 @@ def print_result(response, links):
         else:  # Normal part
             yield Panel(part.strip("\n"), box=box.SIMPLE)
 
-    table = Table(title="", box=box.SIMPLE)
-    table.add_column("References", justify="middle", style="cyan", no_wrap=True)
-    for l in links:
-        table.add_row(l)
+    if len(links) > 0:
+        table = Table(title="", box=box.SIMPLE)
+        table.add_column("References", justify="middle", style="cyan", no_wrap=True)
+        for l in links:
+            table.add_row(l)
 
-    yield Panel(table, box=box.SIMPLE)
+        yield Panel(table, box=box.SIMPLE)
 
 
 def main():
@@ -214,6 +243,14 @@ def main():
             kb.question_history.clear()
             console.print("Conversation history cleared", style="cyan")
             continue
+        elif question == "show-similarity":
+            kb.print_similarity = True
+            console.print("Enable similarity", style="cyan")
+            continue
+        elif question == "hide-similarity":
+            kb.print_similarity = False
+            console.print("Enable similarity", style="cyan")
+            continue
         elif question == "history":
             table = Table(title="")
             table.add_column(
@@ -238,6 +275,8 @@ def main():
             table.add_row("[cyan bold]clear[/]", "clear conversation history")
             table.add_row("[cyan bold]history[/]", "show conversation history")
             table.add_row("[cyan bold]help[/]", "show this help message")
+            table.add_row("[cyan bold]show-similarity[/]", "show similarity")
+            table.add_row("[cyan bold]hide-similarity[/]", "hide similarity")
 
             console.print(table)
             continue
