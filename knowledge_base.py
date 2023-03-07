@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import os
-import json
 import openai
 import tiktoken
 import time
-import string
-import numpy as np
 import pandas as pd
+import numpy as np
+import ast
+from openai.embeddings_utils import get_embedding, cosine_similarity
 from dotenv import load_dotenv
 from confluence import Wiki
 from transformers import GPT2TokenizerFast
@@ -19,7 +19,7 @@ from rich.panel import Panel
 from rich.console import group
 from rich import box
 
-console = Console(width=90)
+console = Console(width=120)
 
 
 class KnowledgeBase:
@@ -51,10 +51,9 @@ class KnowledgeBase:
         self,
         query: str,
         df: pd.DataFrame,
-        document_embeddings: dict[tuple[str, str], np.array],
         show_prompt: bool = False,
     ) -> str:
-        prompt, links = self.__construct_prompt(query, document_embeddings, df)
+        prompt, links = self.__construct_prompt(query, df)
         prompt = "\n".join(self.last_response) + prompt
         deduped_links = list(set(links))
 
@@ -89,59 +88,39 @@ class KnowledgeBase:
         return output, deduped_links
 
     def calc_embeddings(self, df: pd.DataFrame) -> pd.DataFrame:
-        mask = df["embeddings"].isna()
-        df.loc[mask, "embeddings"] = df.loc[mask, "body"].apply(
-            lambda x: self.__get_embeddings(x)
-        )
+        if "embeddings" in df.columns:
+            mask = df["embeddings"].isna()
+            df.loc[mask, "embeddings"] = df.loc[mask, "body"].apply(
+                lambda x: get_embedding(x, engine=self.EMBEDDING_MODEL)
+            )
+        else:
+            df["embeddings"] = df["body"].apply(
+                lambda x: get_embedding(x, engine=self.EMBEDDING_MODEL)
+            )
         return df
 
-    def compute_doc_embeddings(
-        self, df: pd.DataFrame
-    ) -> dict[tuple[str, str], list[float]]:
-        return {
-            idx: [float(e) for e in json.loads(r["embeddings"])]
-            for idx, r in df.iterrows()
-        }
-
-    def __get_embeddings(self, text: str, model: str = EMBEDDING_MODEL) -> list[float]:
-        result = openai.Embedding.create(model=model, input=text)
-        return result["data"][0]["embedding"]
-
-    def __vector_similarity(self, x: list[float], y: list[float]) -> float:
-        return np.dot(np.array(x), np.array(y))
-
     def __order_document_sections_by_query_similarity(
-        self, query: str, contexts: dict[tuple[str, str], np.array]
-    ) -> list[tuple[float, tuple[str, str]]]:
-        query_embedding = self.__get_embeddings(query)
-        document_similarities = sorted(
-            [
-                (self.__vector_similarity(query_embedding, doc_embedding), doc_index)
-                for doc_index, doc_embedding in contexts.items()
-            ],
-            reverse=True,
+        self, query: str, df: pd.DataFrame
+    ):
+        query_embedding = get_embedding(query, engine=self.EMBEDDING_MODEL)
+        df["similarity"] = df.embeddings.apply(
+            lambda x: cosine_similarity(x, query_embedding)
         )
 
-        return document_similarities
+        results = df.sort_values("similarity", ascending=False).head(3)
 
-    def __construct_prompt(
-        self, question: str, context_embeddings: dict, df: pd.DataFrame
-    ):
+        return results
+
+    def __construct_prompt(self, question: str, df: pd.DataFrame):
         most_relevant_document_sections = (
-            self.__order_document_sections_by_query_similarity(
-                question, context_embeddings
-            )
+            self.__order_document_sections_by_query_similarity(question, df)
         )
 
         chosen_sections = []
         chosen_sections_links = []
         chosen_sections_len = 0
 
-        for _, section_index in most_relevant_document_sections:
-            # Add contexts until we run out of space.
-            df2 = df.sort_index()
-            document_section = df2.loc[section_index]
-
+        for _, document_section in most_relevant_document_sections.iterrows():
             chosen_sections_len += int(document_section.num_tokens) + self.separator_len
             if chosen_sections_len > self.MAX_SECTION_LEN:
                 break
@@ -173,11 +152,16 @@ def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
     df = wiki.collect_content_dataframe(pages)
     df = kb.calc_embeddings(df)
     df.to_csv("./data/material.csv", index=False)
-    df = pd.read_csv("./data/material.csv")
+
+    # to avoid new/old embeddings format difference
+    new_df = pd.read_csv("./data/material.csv")
+    new_df["embeddings"] = new_df["embeddings"].apply(
+        lambda x: np.array(ast.literal_eval(x))
+    )
 
     console.print("Confluence download and index completed!", style="bold yellow")
 
-    return df
+    return new_df
 
 
 @group()
@@ -205,7 +189,6 @@ def main():
     load_dotenv()
     kb = KnowledgeBase()
     df = update_internal_doc_embeddings(kb)
-    document_embeddings = kb.compute_doc_embeddings(df)
     prompt_on = False
 
     while True:
@@ -259,9 +242,7 @@ def main():
             console.print(table)
             continue
 
-        response, links = kb.answer_query_with_context(
-            question, df, document_embeddings, prompt_on
-        )
+        response, links = kb.answer_query_with_context(question, df, prompt_on)
         console.print(Panel(print_result(response, links)))
 
         prompt_on = False

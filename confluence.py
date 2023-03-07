@@ -32,6 +32,9 @@ class Wiki:
 
     def __read_previously_downloaded(self) -> list[str]:
         downloaded = []
+        if os.path.isfile("./data/material.csv") is False:
+            return []
+
         with open("./data/material.csv") as csvfile:
             reader = csv.reader(csvfile)
             num_rows = sum(1 for _ in reader)
@@ -126,8 +129,11 @@ class Wiki:
                     collect += [(title, link, title + " - " + item, tl)]
 
         df = pd.DataFrame(collect, columns=["title", "link", "body", "num_tokens"])
-        # merge existing files
-        old_df = pd.read_csv("./data/material.csv")
-        merged_df = pd.concat([old_df, df])
+        if os.path.isfile("./data/material.csv") is False:
+            return df
+        else:
+            # merge existing files
+            old_df = pd.read_csv("./data/material.csv")
+            merged_df = pd.concat([old_df, df])
 
-        return merged_df
+            return merged_df
