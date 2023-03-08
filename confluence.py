@@ -104,11 +104,19 @@ class Wiki:
                     and sibling.name != "h3"
                 ]
 
+                # Extract the link URLs from the content and append them to the current content
+                for sibling in content:
+                    if sibling.name == "a":
+                        link_url = sibling["href"]
+                        current_content += " " + link_url.strip()
+                    else:
+                        current_content += " " + sibling.get_text().strip()
                 # Concatenate the content and add it to the result array
+                # for better mapping
                 current_content = (
                     header_text
                     + ": "
-                    + " ".join([c.get_text().strip() for c in content])
+                    + current_content.replace("\n", " ").replace("\r", " ")
                 )
 
                 if "changelog" in current_content.lower():
