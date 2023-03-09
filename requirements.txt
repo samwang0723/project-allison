@@ -45,6 +45,7 @@ pandas==1.5.3
 parso==0.7.1
 pathy==0.10.1
 Pillow==9.4.0
+pip-autoremove==0.10.0
 pipreqs==0.4.11
 plotly==5.13.1
 pluggy==1.0.0
