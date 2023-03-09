@@ -36,6 +36,7 @@ matplotlib==3.7.1
 mdurl==0.1.2
 multidict==6.0.4
 murmurhash==1.0.9
+nltk==3.8.1
 numpy==1.24.2
 oauthlib==3.2.2
 openai==0.27.0
@@ -48,7 +49,6 @@ pipreqs==0.4.11
 plotly==5.13.1
 pluggy==1.0.0
 preshed==3.0.8
-prompt-toolkit==3.0.38
 pycryptodomex==3.17
 pydantic==1.10.5
 Pygments==2.14.0
