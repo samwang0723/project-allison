@@ -10,7 +10,6 @@ import ast
 from openai.embeddings_utils import get_embedding, cosine_similarity
 from dotenv import load_dotenv
 from confluence import Wiki
-from transformers import GPT2TokenizerFast
 from collections import deque
 from rich.console import Console
 from rich.syntax import Syntax
@@ -38,8 +37,8 @@ class KnowledgeBase:
     MAX_SECTION_LEN = 2046
     SEPARATOR = "\n* "
     ENCODING = "gpt2"  # encoding for text-davinci-003
-    TOKENIZER = GPT2TokenizerFast.from_pretrained("gpt2")
-    MAX_NUM_TOKENS = 2046
+    MATERIAL_FILE = "./data/material.csv"
+    MIN_SIMILARITY = 0.8
 
     def __init__(self):
         openai.api_key = os.environ["OPENAI_API_KEY"]
@@ -63,13 +62,7 @@ class KnowledgeBase:
             console.print("Prompt:\n\t" + prompt, style="bold green")
         try:
             start_time = time.time()
-            response = openai.ChatCompletion.create(
-                **self.COMPLETIONS_API_PARAMS,
-                messages=[
-                    {"role": "system", "content": prompt},
-                    {"role": "user", "content": query},
-                ],
-            )
+            response = self.__chat_completion(prompt, query)
             end_time = time.time()
             duration = end_time - start_time
             console.print(
@@ -84,13 +77,7 @@ class KnowledgeBase:
             )
             # If the connection is reset, wait for 5 seconds and retry
             time.sleep(5)
-            response = openai.ChatCompletion.create(
-                **self.COMPLETIONS_API_PARAMS,
-                messages=[
-                    {"role": "system", "content": prompt},
-                    {"role": "user", "content": query},
-                ],
-            )
+            response = self.__chat_completion(prompt, query)
 
         output = response["choices"][0]["message"]["content"].strip(" \n")
         self.last_response.append(output)
@@ -109,6 +96,15 @@ class KnowledgeBase:
                 lambda x: get_embedding(x, engine=self.EMBEDDING_MODEL)
             )
         return df
+
+    def __chat_completion(self, prompt: str, query: str):
+        return openai.ChatCompletion.create(
+            **self.COMPLETIONS_API_PARAMS,
+            messages=[
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": query},
+            ],
+        )
 
     def __order_document_sections_by_query_similarity(
         self, query: str, df: pd.DataFrame
@@ -146,7 +142,7 @@ class KnowledgeBase:
                     f"{document_section.title} - {document_section.similarity}",
                     style="bold green",
                 )
-            if document_section.similarity < 0.8:
+            if document_section.similarity < self.MIN_SIMILARITY:
                 continue
 
             chosen_sections_len += int(document_section.num_tokens) + self.separator_len
@@ -178,12 +174,12 @@ def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
     wiki = Wiki()
     confluence = wiki.connect_to_confluence()
     pages = wiki.get_all_pages_from_ids(confluence)
-    df = wiki.collect_content_dataframe(pages)
+    df = wiki.collect_with_processes(pages)
     df = kb.calc_embeddings(df)
-    df.to_csv("./data/material.csv", index=False)
+    df.to_csv(kb.MATERIAL_FILE, index=False)
 
     # to avoid new/old embeddings format difference
-    new_df = pd.read_csv("./data/material.csv")
+    new_df = pd.read_csv(kb.MATERIAL_FILE)
     new_df["embeddings"] = new_df["embeddings"].apply(
         lambda x: np.array(ast.literal_eval(x))
     )
