@@ -173,7 +173,8 @@ def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
 
     wiki = Wiki()
     confluence = wiki.connect_to_confluence()
-    pages = wiki.get_all_pages_from_ids(confluence)
+    gDrive = wiki.connect_to_drive()
+    pages = wiki.get_all_pages_from_ids(confluence, gDrive=gDrive)
     df = wiki.collect_with_processes(pages)
     df = kb.calc_embeddings(df)
     df.to_csv(kb.MATERIAL_FILE, index=False)

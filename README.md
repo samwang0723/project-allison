@@ -32,3 +32,6 @@ Training example with openai
 
 ### Put meaningful Confluence pages IDs into the pulling list
 Make sure you have `source.csv` inside `data` folder and listed category, type, page_id
+
+## Setup Google Drive API
+https://developers.google.com/drive/api/quickstart/python

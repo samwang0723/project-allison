@@ -4,3 +4,4 @@ venv/
 .env
 source.csv
 material.csv
+auth/

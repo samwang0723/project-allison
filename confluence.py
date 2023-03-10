@@ -1,6 +1,7 @@
 import os
 import spacy
 import csv
+import re
 import multiprocessing
 import pandas as pd
 from dotenv import load_dotenv
@@ -9,6 +10,7 @@ from transformers import GPT2TokenizerFast
 from bs4 import BeautifulSoup
 from rich.progress import Progress
 from functools import partial
+from googleapis import Drive
 
 
 class Wiki:
@@ -35,7 +37,13 @@ class Wiki:
 
         return confluence
 
-    def get_all_pages_from_ids(self, confluence):
+    def connect_to_drive(self) -> Drive:
+        drive = Drive()
+        drive.authenticate()
+
+        return drive
+
+    def get_all_pages_from_ids(self, confluence, gDrive=None):
         pages = []
         downloaded = self.__read_previously_downloaded()
 
@@ -52,10 +60,17 @@ class Wiki:
                 for row in reader:
                     space = row["space"]
                     id = row["page_id"]
-                    link = self.host + "/wiki/spaces/" + space + "/pages/" + id
-                    if link not in downloaded:
-                        page = confluence.get_page_by_id(id, expand="body.storage")
-                        pages.append({"page": page, "link": link})
+
+                    if space == "GOOGLE":
+                        link = "https://docs.google.com/document/d/" + id
+                        if link not in downloaded and gDrive != None:
+                            page = gDrive.download_file(id, "text/plain")
+                            pages.append({"space": space, "page": page, "link": link})
+                    else:
+                        link = self.host + "/wiki/spaces/" + space + "/pages/" + id
+                        if link not in downloaded:
+                            page = confluence.get_page_by_id(id, expand="body.storage")
+                            pages.append({"space": space, "page": page, "link": link})
 
                     progress.update(task, advance=1)
 
@@ -100,12 +115,29 @@ class Wiki:
     def extract_content(chunk, nlp, tokenizer, min_tokens, max_tokens):
         collect = []
         for item in chunk:
-            page = item["page"]
-            title = page["title"]
-            link = item["link"]
-            htmlbody = page["body"]["storage"]["value"]
-            soup = BeautifulSoup(htmlbody, "html.parser")
-            body = Wiki.parse_html(soup, nlp)
+            space = item["space"]
+            if space == "GOOGLE":
+                page = item["page"]
+                link = item["link"]
+
+                delimiter1 = "\[title\]"
+                delimiter2 = "\[/\]"
+                pattern = f"{delimiter1}(.*?){delimiter2}(.*)"
+
+                # Search for the pattern in the text using the re.search() method
+                match = re.search(pattern, page)
+
+                # Get the text between the delimiters and the text after the second delimiter
+                title = match.group(1)
+                content = match.group(2)
+                body = Wiki.parse_text(content, nlp)
+            else:
+                page = item["page"]
+                title = page["title"]
+                link = item["link"]
+                htmlbody = page["body"]["storage"]["value"]
+                soup = BeautifulSoup(htmlbody, "html.parser")
+                body = Wiki.parse_html(soup, nlp)
 
             for item in body:
                 # Calculate number of tokens
@@ -114,6 +146,25 @@ class Wiki:
                     collect += [(title, link, title + " - " + item, tl)]
 
         return collect
+
+    @staticmethod
+    def parse_text(text, nlp) -> list[str]:
+        paragrpahs = text.split("\n\r\n\r")
+        body = []
+        for block in paragrpahs:
+            # Check if the current content contains at least 2 verbs and nouns
+            contains_verb_noun = 0
+            doc = nlp(block)
+            for token in doc:
+                if token.pos_ == "VERB":
+                    contains_verb_noun += 1
+                elif token.pos_ == "NOUN":
+                    contains_verb_noun += 1
+
+            if contains_verb_noun >= 2:
+                body.append(block + " ")
+
+        return body
 
     @staticmethod
     def parse_html(soup, nlp) -> list[str]:
