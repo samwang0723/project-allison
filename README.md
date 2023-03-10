@@ -36,6 +36,12 @@ Make sure you have `source.csv` inside `data` folder and listed category, type, 
 ## Setup Google Drive API
 https://developers.google.com/drive/api/quickstart/python
 
+Download `credentials.json` into `/auth` folder
+
+Put source into CSV
+
+    GOOGLE,{category},{page-id}
+
 ## Docker
 
 ### build
