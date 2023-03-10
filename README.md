@@ -35,3 +35,13 @@ Make sure you have `source.csv` inside `data` folder and listed category, type, 
 
 ## Setup Google Drive API
 https://developers.google.com/drive/api/quickstart/python
+
+## Docker
+
+### build
+
+    docker build -t knowledge_base .
+
+### run
+
+    docker run --env-file .env -v $(pwd)/data:/app/data -it knowledge_base
