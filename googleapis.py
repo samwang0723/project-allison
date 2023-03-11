@@ -40,7 +40,7 @@ class Drive:
             with open(self.STORED_TOKEN, "w") as token:
                 token.write(self.__creds.to_json())
 
-    def download_file(self, fileId, mimeType) -> str:
+    def download_file(self, fileId, mimeType="text/html") -> str:
         output = ""
         try:
             self.__service = build("drive", "v3", credentials=self.__creds)
@@ -59,7 +59,7 @@ class Drive:
                 .execute()
             )
 
-            output = f"[title]{file_title}[/] {results}"
+            output = f"[title]{file_title}[/] {results.decode()}"
         except HttpError as error:
             # TODO(developer) - Handle errors from drive API.
             print(f"An error occurred: {error}")

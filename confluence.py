@@ -64,7 +64,7 @@ class Wiki:
                     if space == "GOOGLE":
                         link = "https://docs.google.com/document/d/" + id
                         if link not in downloaded and gDrive != None:
-                            page = gDrive.download_file(id, "text/plain")
+                            page = gDrive.download_file(id)
                             pages.append({"space": space, "page": page, "link": link})
                     else:
                         link = self.host + "/wiki/spaces/" + space + "/pages/" + id
@@ -130,7 +130,8 @@ class Wiki:
                 # Get the text between the delimiters and the text after the second delimiter
                 title = match.group(1)
                 content = match.group(2)
-                body = Wiki.parse_text(content, nlp)
+                soup = BeautifulSoup(content, "html.parser")
+                body = Wiki.parse_html(soup, nlp)
             else:
                 page = item["page"]
                 title = page["title"]
@@ -146,25 +147,6 @@ class Wiki:
                     collect += [(title, link, title + " - " + item, tl)]
 
         return collect
-
-    @staticmethod
-    def parse_text(text, nlp) -> list[str]:
-        paragrpahs = text.split("\n\r\n\r")
-        body = []
-        for block in paragrpahs:
-            # Check if the current content contains at least 2 verbs and nouns
-            contains_verb_noun = 0
-            doc = nlp(block)
-            for token in doc:
-                if token.pos_ == "VERB":
-                    contains_verb_noun += 1
-                elif token.pos_ == "NOUN":
-                    contains_verb_noun += 1
-
-            if contains_verb_noun >= 2:
-                body.append(block + " ")
-
-        return body
 
     @staticmethod
     def parse_html(soup, nlp) -> list[str]:
@@ -189,11 +171,14 @@ class Wiki:
 
             # Extract the link URLs from the content and append them to the current content
             for sibling in content:
-                if sibling.name == "a":
-                    link_url = sibling["href"]
-                    current_content += " " + link_url.strip()
-                else:
-                    current_content += " " + sibling.get_text().strip()
+                try:
+                    if sibling.name == "a":
+                        link_url = sibling["href"]
+                        current_content += " " + link_url.strip()
+                    else:
+                        current_content += " " + sibling.get_text().strip()
+                except:
+                    continue
             # Concatenate the content and add it to the result array
             # for better mapping
             current_content = (
