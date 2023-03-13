@@ -7,6 +7,10 @@ import time
 import pandas as pd
 import numpy as np
 import ast
+import pyttsx3
+import threading
+import pyaudio
+import wave
 from openai.embeddings_utils import get_embedding, cosine_similarity
 from dotenv import load_dotenv
 from confluence import Wiki
@@ -19,6 +23,13 @@ from rich.console import group
 from rich import box
 
 console = Console(width=120)
+
+CHUNK = 1024
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+RATE = 44100
+RECORD_SECONDS = 8
+WAVE_OUTPUT_FILENAME = "./voice_records/voice.wav"
 
 
 class KnowledgeBase:
@@ -173,8 +184,8 @@ def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
 
     wiki = Wiki()
     confluence = wiki.connect_to_confluence()
-    gDrive = wiki.connect_to_drive()
-    pages = wiki.get_all_pages_from_ids(confluence, gDrive=gDrive)
+    # gDrive = wiki.connect_to_drive()
+    pages = wiki.get_all_pages_from_ids(confluence)
     df = wiki.collect_with_processes(pages)
     df = kb.calc_embeddings(df)
     df.to_csv(kb.MATERIAL_FILE, index=False)
@@ -194,6 +205,7 @@ def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
 def print_result(response, links):
     yield Panel("Answer: ", style="bold green", box=box.SIMPLE)
 
+    messages = []
     parts = response.split("```")
     for i, part in enumerate(parts):
         if i % 2 == 1:  # Syntax-highlighted part
@@ -201,7 +213,10 @@ def print_result(response, links):
                 Syntax(part, "ruby", theme="monokai", line_numbers=True), box=box.SIMPLE
             )
         else:  # Normal part
-            yield Panel(part.strip("\n"), box=box.SIMPLE)
+            message = part.strip("\n")
+            messages.append(message)
+
+            yield Panel(message, box=box.SIMPLE)
 
     if len(links) > 0:
         table = Table(title="", box=box.SIMPLE)
@@ -210,6 +225,62 @@ def print_result(response, links):
             table.add_row(l)
 
         yield Panel(table, box=box.SIMPLE)
+
+    speak_thread = threading.Thread(target=speak, args=(messages,))
+    speak_thread.start()
+
+
+def speak(messages):
+    # Initialize the TTS engine
+    engine = pyttsx3.init()
+
+    # voice_id = "com.apple.voice.enhanced.zh-CN.Tingting"
+    # com.apple.voice.enhanced.en-GB.Stephanie
+    # com.apple.voice.premium.en-GB.Malcolm
+
+    voice_id = "com.apple.voice.premium.en-GB.Malcolm"
+    # voice_id = "com.apple.voice.enhanced.zh-CN.Tingting"
+    engine.setProperty("voice", voice_id)
+    engine.setProperty("rate", 153)
+
+    res = ""
+    for message in messages:
+        res += " " + message
+
+    engine.say(res)
+    engine.runAndWait()
+
+
+def voice_recognition():
+    p = pyaudio.PyAudio()
+    stream = p.open(
+        format=FORMAT, channels=CHANNELS, rate=RATE, frames_per_buffer=CHUNK, input=True
+    )
+
+    console.print("* recording")
+
+    frames = []
+    for _ in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
+        data = stream.read(CHUNK)
+        frames.append(data)
+
+    console.print("* done recording")
+
+    stream.stop_stream()
+    stream.close()
+    p.terminate()
+
+    wf = wave.open(WAVE_OUTPUT_FILENAME, "wb")
+    wf.setnchannels(CHANNELS)
+    wf.setsampwidth(p.get_sample_size(FORMAT))
+    wf.setframerate(RATE)
+    wf.writeframes(b"".join(frames))
+    wf.close()
+
+    audio_file = open(WAVE_OUTPUT_FILENAME, "rb")
+    transcript = openai.Audio.transcribe("whisper-1", audio_file)
+
+    return transcript["text"]
 
 
 def main():
@@ -259,6 +330,10 @@ def main():
 
             console.print(table)
             continue
+        elif question == "voice" or question == "vv":
+            question = voice_recognition()
+            console.print(f"Question from voice: {question}")
+
         elif question == "help":
             table = Table(title="")
             table.add_column("Command", justify="middle", no_wrap=True)
@@ -275,6 +350,7 @@ def main():
             table.add_row("[cyan bold]help[/]", "show this help message")
             table.add_row("[cyan bold]show-similarity[/]", "show similarity")
             table.add_row("[cyan bold]hide-similarity[/]", "hide similarity")
+            table.add_row("[cyan bold]voice (vv)[/]", "use voice input")
 
             console.print(table)
             continue
