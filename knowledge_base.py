@@ -7,10 +7,9 @@ import time
 import pandas as pd
 import numpy as np
 import ast
-import pyttsx3
-import threading
 import pyaudio
 import wave
+import subprocess
 from openai.embeddings_utils import get_embedding, cosine_similarity
 from dotenv import load_dotenv
 from confluence import Wiki
@@ -205,7 +204,7 @@ def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
 def print_result(response, links):
     yield Panel("Answer: ", style="bold green", box=box.SIMPLE)
 
-    messages = []
+    messages = ""
     parts = response.split("```")
     for i, part in enumerate(parts):
         if i % 2 == 1:  # Syntax-highlighted part
@@ -214,7 +213,7 @@ def print_result(response, links):
             )
         else:  # Normal part
             message = part.strip("\n")
-            messages.append(message)
+            messages += " " + message
 
             yield Panel(message, box=box.SIMPLE)
 
@@ -226,29 +225,9 @@ def print_result(response, links):
 
         yield Panel(table, box=box.SIMPLE)
 
-    speak_thread = threading.Thread(target=speak, args=(messages,))
-    speak_thread.start()
-
-
-def speak(messages):
-    # Initialize the TTS engine
-    engine = pyttsx3.init()
-
-    # voice_id = "com.apple.voice.enhanced.zh-CN.Tingting"
-    # com.apple.voice.enhanced.en-GB.Stephanie
-    # com.apple.voice.premium.en-GB.Malcolm
-
-    voice_id = "com.apple.voice.premium.en-GB.Malcolm"
-    # voice_id = "com.apple.voice.enhanced.zh-CN.Tingting"
-    engine.setProperty("voice", voice_id)
-    engine.setProperty("rate", 153)
-
-    res = ""
-    for message in messages:
-        res += " " + message
-
-    engine.say(res)
-    engine.runAndWait()
+    # calling voice to speaking
+    # Execute the voice.py script with a command-line argument using Popen
+    subprocess.Popen(["python3", "voice.py", messages], stdout=subprocess.PIPE)
 
 
 def voice_recognition():
