@@ -3,6 +3,8 @@
 import os
 import openai
 import tiktoken
+import datetime
+import random
 import time
 import pandas as pd
 import numpy as np
@@ -29,6 +31,7 @@ CHANNELS = 1
 RATE = 44100
 RECORD_SECONDS = 8
 WAVE_OUTPUT_FILENAME = "./voice_records/voice.wav"
+proc = None
 
 
 class KnowledgeBase:
@@ -64,8 +67,8 @@ class KnowledgeBase:
         df: pd.DataFrame,
         show_prompt: bool = False,
     ):
+        global proc
         prompt, links = self.__construct_prompt(query, df)
-        prompt = "\n".join(self.last_response) + prompt
         deduped_links = list(set(links))
 
         if show_prompt:
@@ -81,9 +84,16 @@ class KnowledgeBase:
                 "seconds",
                 style="bold red",
             )
-        except openai.errors.APIConnectionError:
+        except:
             console.print(
                 "[[ Openai connection reset, wait for 5 secs ]]", style="bold red"
+            )
+            proc = subprocess.Popen(
+                [
+                    "python3",
+                    "voice.py",
+                    "Seems like openai server is hitting rate limit, please wait a moment",
+                ]
             )
             # If the connection is reset, wait for 5 seconds and retry
             time.sleep(5)
@@ -164,10 +174,11 @@ class KnowledgeBase:
             )
             chosen_sections_links.append(document_section.link)
 
-        header = """Please perform as a professional Crypto.com domain expert 
-        that can answer questions about Crypto.com specific knowledge giving below 
+        header = """Please perform as a professional Crypto.com domain expert
+        that can answer questions about Crypto.com specific knowledge giving below
         context.\n\nContext:\n"""
         prompt = header + "".join(chosen_sections)
+        prompt = "\n".join(self.last_response) + prompt
 
         return (prompt, chosen_sections_links)
 
@@ -202,6 +213,7 @@ def update_internal_doc_embeddings(kb: KnowledgeBase) -> pd.DataFrame:
 
 @group()
 def print_result(response, links):
+    global proc
     yield Panel("Answer: ", style="bold green", box=box.SIMPLE)
 
     messages = ""
@@ -227,23 +239,31 @@ def print_result(response, links):
 
     # calling voice to speaking
     # Execute the voice.py script with a command-line argument using Popen
-    subprocess.Popen(["python3", "voice.py", messages], stdout=subprocess.PIPE)
+    proc = subprocess.Popen(["python3", "voice.py", messages])
 
 
 def voice_recognition():
+    global proc
+    # If voice still speaking, don't listen and parse the transcript
+    while True:
+        try:
+            # Check if the voice output process has completed
+            return_code = proc.poll()
+            if return_code is not None:
+                break
+        except:
+            break
+
     p = pyaudio.PyAudio()
     stream = p.open(
         format=FORMAT, channels=CHANNELS, rate=RATE, frames_per_buffer=CHUNK, input=True
     )
 
-    console.print("* recording")
-
     frames = []
-    for _ in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
-        data = stream.read(CHUNK)
-        frames.append(data)
-
-    console.print("* done recording")
+    with console.status("[bold green] Listening the voice") as status:
+        for _ in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
+            data = stream.read(CHUNK)
+            frames.append(data)
 
     stream.stop_stream()
     stream.close()
@@ -262,44 +282,90 @@ def voice_recognition():
     return transcript["text"]
 
 
+def greeting() -> str:
+    current_time = datetime.datetime.now().time()
+    time_str = None
+    if current_time < datetime.time(12):
+        time_str = "Good morning"
+    elif current_time < datetime.time(17):
+        time_str = "Good afternoon"
+    elif current_time < datetime.time(20):
+        time_str = "Good evening"
+    else:
+        time_str = "Greeting"
+
+    greetings = [
+        "It's always a pleasure to see you.",
+        "How may I assist you today",
+        "How's your day going?",
+        "I hope you're having a fantastic day so far.",
+        "How are you doing today?",
+    ]
+    random_greeting = random.choice(greetings)
+
+    return f"{time_str} Sir, {random_greeting}"
+
+
 def main():
     load_dotenv()
     kb = KnowledgeBase()
     df = update_internal_doc_embeddings(kb)
     prompt_on = False
+    global proc
+
+    question_starting_time = None
 
     while True:
+        if (
+            question_starting_time is not None
+            and time.time() - question_starting_time > 30
+        ):
+            console.print(
+                "Voice input is now [red bold]off[/] until you call Jarvis again",
+                style="cyan",
+            )
+            question_starting_time = None
         # Note: Python 2.x users should use raw_input, the equivalent of 3.x's input
         console.print("\n")
-        question = console.input("[cyan bold] Question / Command: [/]")
-        if question == "exit":
+        question = voice_recognition()
+        if len(question) < 5:
+            continue
+        else:
+            console.print(f"Voice Transcript: {question}")
+
+        # question = console.input("[cyan bold] Question / Command: [/]")
+        if "Jarvis" in question:
+            proc = subprocess.Popen(["python3", "voice.py", greeting()])
+            question_starting_time = time.time()
+            continue
+        elif question == "Exit":
             break
-        elif question == "show-prompt":
+        elif "Show prompt" in question:
             prompt_on = True
             console.print(
                 "Prompt is now [red bold]on[/] for next conversation", style="cyan"
             )
             continue
-        elif question == "hide-prompt":
+        elif "Hide prompt" in question:
             prompt_on = False
             console.print(
                 "Prompt is now [red bold]off[/] for next conversation", style="cyan"
             )
             continue
-        elif question == "clear":
+        elif "Clear history" in question:
             kb.last_response.clear()
             kb.question_history.clear()
             console.print("Conversation history cleared", style="cyan")
             continue
-        elif question == "show-similarity":
+        elif "Show similarity" in question:
             kb.print_similarity = True
-            console.print("Enable similarity", style="cyan")
+            console.print("Similarity is now [red bold]on[/]", style="cyan")
             continue
-        elif question == "hide-similarity":
+        elif "Hide similarity" in question:
             kb.print_similarity = False
-            console.print("Enable similarity", style="cyan")
+            console.print("Similarity is now [red bold]off[/]", style="cyan")
             continue
-        elif question == "history":
+        elif "List History" in question:
             table = Table(title="")
             table.add_column(
                 "History Records", justify="middle", style="cyan", no_wrap=True
@@ -309,10 +375,6 @@ def main():
 
             console.print(table)
             continue
-        elif question == "voice" or question == "vv":
-            question = voice_recognition()
-            console.print(f"Question from voice: {question}")
-
         elif question == "help":
             table = Table(title="")
             table.add_column("Command", justify="middle", no_wrap=True)
@@ -333,11 +395,12 @@ def main():
 
             console.print(table)
             continue
+        elif "Jarvis" not in question and question_starting_time is not None:
+            question_starting_time = time.time()
+            response, links = kb.answer_query_with_context(question, df, prompt_on)
+            console.print(Panel(print_result(response, links)))
 
-        response, links = kb.answer_query_with_context(question, df, prompt_on)
-        console.print(Panel(print_result(response, links)))
-
-        prompt_on = False
+            prompt_on = False
 
 
 if __name__ == "__main__":
