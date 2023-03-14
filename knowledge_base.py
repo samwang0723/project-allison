@@ -254,30 +254,45 @@ def voice_recognition():
         except:
             break
 
-    p = pyaudio.PyAudio()
-    stream = p.open(
-        format=FORMAT, channels=CHANNELS, rate=RATE, frames_per_buffer=CHUNK, input=True
-    )
+    try:
+        p = pyaudio.PyAudio()
+        stream = p.open(
+            format=FORMAT,
+            channels=CHANNELS,
+            rate=RATE,
+            frames_per_buffer=CHUNK,
+            input=True,
+        )
 
-    frames = []
-    with console.status("[bold green] Listening the voice") as status:
-        for _ in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
-            data = stream.read(CHUNK)
-            frames.append(data)
+        frames = []
+        with console.status("[bold green] Listening the voice") as status:
+            for _ in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
+                data = stream.read(CHUNK)
+                # Convert data to numpy array
+                audio_data = np.frombuffer(data, dtype=np.int16)
+                # Compute energy of audio frame
+                energy = np.sum(audio_data**2) / len(audio_data)
+                # If energy is above threshold, do something with the audio data
+                if energy >= 1500:
+                    # Process audio data here
+                    frames.append(data)
 
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
 
-    wf = wave.open(WAVE_OUTPUT_FILENAME, "wb")
-    wf.setnchannels(CHANNELS)
-    wf.setsampwidth(p.get_sample_size(FORMAT))
-    wf.setframerate(RATE)
-    wf.writeframes(b"".join(frames))
-    wf.close()
+        wf = wave.open(WAVE_OUTPUT_FILENAME, "wb")
+        wf.setnchannels(CHANNELS)
+        wf.setsampwidth(p.get_sample_size(FORMAT))
+        wf.setframerate(RATE)
+        wf.writeframes(b"".join(frames))
+        wf.close()
 
-    audio_file = open(WAVE_OUTPUT_FILENAME, "rb")
-    transcript = openai.Audio.transcribe("whisper-1", audio_file)
+        audio_file = open(WAVE_OUTPUT_FILENAME, "rb")
+        # transcribe turns into all languages, instead translate only to english
+        transcript = openai.Audio.transcribe("whisper-1", audio_file)
+    except:
+        transcript = {"text": ""}
 
     return transcript["text"]
 
