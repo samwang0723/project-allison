@@ -32,6 +32,7 @@ RATE = 44100
 RECORD_SECONDS = 8
 WAVE_OUTPUT_FILENAME = "./voice_records/voice.wav"
 proc = None
+face_proc = None
 
 
 class KnowledgeBase:
@@ -242,6 +243,20 @@ def print_result(response, links):
     proc = subprocess.Popen(["python3", "voice.py", messages])
 
 
+def face_recognition():
+    global face_proc
+    face_proc = subprocess.Popen(["python3", "face_detect.py"])
+
+    while True:
+        try:
+            # Check if the voice output process has completed
+            return_code = face_proc.poll()
+            if return_code is not None:
+                break
+        except:
+            console.print("Face recognition process is not running", style="bold red")
+
+
 def voice_recognition():
     global proc
     # If voice still speaking, don't listen and parse the transcript
@@ -268,14 +283,8 @@ def voice_recognition():
         with console.status("[bold green] Listening the voice") as status:
             for _ in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
                 data = stream.read(CHUNK)
-                # Convert data to numpy array
-                audio_data = np.frombuffer(data, dtype=np.int16)
-                # Compute energy of audio frame
-                energy = np.sum(audio_data**2) / len(audio_data)
-                # If energy is above threshold, do something with the audio data
-                if energy >= 1500:
-                    # Process audio data here
-                    frames.append(data)
+                # Process audio data here
+                frames.append(data)
 
         stream.stop_stream()
         stream.close()
@@ -340,20 +349,22 @@ def main():
                 style="cyan",
             )
             question_starting_time = None
-        # Note: Python 2.x users should use raw_input, the equivalent of 3.x's input
-        console.print("\n")
-        question = voice_recognition()
-        if len(question) < 5:
-            continue
-        else:
-            console.print(f"Voice Transcript: {question}")
 
-        # question = console.input("[cyan bold] Question / Command: [/]")
-        if "Jarvis" in question:
+        if question_starting_time is None:
+            face_recognition()
             proc = subprocess.Popen(["python3", "voice.py", greeting()])
             question_starting_time = time.time()
             continue
-        elif question == "Exit":
+        else:
+            console.print("\n")
+            question = voice_recognition()
+            if len(question) < 5:
+                continue
+            else:
+                console.print(f"Voice Transcript: {question}")
+
+        # question = console.input("[cyan bold] Question / Command: [/]")
+        if "Terminate the program" in question:
             break
         elif "Show prompt" in question:
             prompt_on = True
