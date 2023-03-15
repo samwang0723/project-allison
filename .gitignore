@@ -5,3 +5,4 @@ venv/
 source.csv
 material.csv
 auth/
+voice_records/

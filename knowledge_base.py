@@ -3,7 +3,6 @@
 import os
 import openai
 import tiktoken
-import datetime
 import random
 import time
 import pandas as pd
@@ -11,7 +10,10 @@ import numpy as np
 import ast
 import pyaudio
 import wave
+import re
 import subprocess
+import pytz
+from datetime import datetime
 from openai.embeddings_utils import get_embedding, cosine_similarity
 from dotenv import load_dotenv
 from confluence import Wiki
@@ -175,11 +177,11 @@ class KnowledgeBase:
             )
             chosen_sections_links.append(document_section.link)
 
-        header = """Please perform as a professional Crypto.com domain expert
+        header = """\n--\nPlease perform as a professional Crypto.com domain expert
         that can answer questions about Crypto.com specific knowledge giving below
-        context.\n\nContext:\n"""
-        prompt = header + "".join(chosen_sections)
-        prompt = "\n".join(self.last_response) + prompt
+        context"""
+        prompt = "Context: " + "".join(chosen_sections)
+        prompt = "\n".join(self.last_response) + prompt + header
 
         return (prompt, chosen_sections_links)
 
@@ -280,10 +282,9 @@ def voice_recognition():
         )
 
         frames = []
-        with console.status("[bold green] Listening the voice") as status:
+        with console.status("[bold green] Listening the voice"):
             for _ in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
                 data = stream.read(CHUNK)
-                # Process audio data here
                 frames.append(data)
 
         stream.stop_stream()
@@ -297,23 +298,123 @@ def voice_recognition():
         wf.writeframes(b"".join(frames))
         wf.close()
 
-        audio_file = open(WAVE_OUTPUT_FILENAME, "rb")
+        # use ffmpeg to suppress noise and increase volume of voice
+        not_having_noise = noise_suppression()
+        if not_having_noise == False:
+            return ""
+
+        audio_file = open("./voice_records/final.wav", "rb")
         # transcribe turns into all languages, instead translate only to english
         transcript = openai.Audio.transcribe("whisper-1", audio_file)
-    except:
+
+    except Exception as e:
+        console.print(e, style="bold red")
         transcript = {"text": ""}
 
     return transcript["text"]
 
 
+def noise_suppression():
+    p = subprocess.Popen(
+        [
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "quiet",
+            "-i",
+            WAVE_OUTPUT_FILENAME,
+            "-af",
+            "afftdn=nf=-25",
+            "./voice_records/output.wav",
+        ]
+    )
+    p.communicate()
+
+    p = subprocess.Popen(
+        [
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "quiet",
+            "-i",
+            "./voice_records/output.wav",
+            "-af",
+            "afftdn=nf=-25",
+            "./voice_records/output2.wav",
+        ]
+    )
+    p.communicate()
+
+    p = subprocess.Popen(
+        [
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "quiet",
+            "-i",
+            "./voice_records/output2.wav",
+            "-af",
+            "highpass=f=200, lowpass=f=3000",
+            "./voice_records/output3.wav",
+        ]
+    )
+    p.communicate()
+
+    p = subprocess.Popen(
+        [
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "quiet",
+            "-i",
+            "./voice_records/output3.wav",
+            "-af",
+            "volume=4",
+            "./voice_records/final.wav",
+        ]
+    )
+    p.communicate()
+
+    command = "ffmpeg -hide_banner -stats -i ./voice_records/final.wav -af silencedetect=noise=0dB:d=3 -vn -sn -dn -f null -"
+    out = subprocess.Popen(
+        command.split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+    stdout, stderr = out.communicate()
+    if stderr is not None:
+        return False
+    output = stdout.decode("utf-8")
+
+    # detect silent duration
+    cmd = "ffmpeg -hide_banner -stats -i ./voice_records/final.wav -af silencedetect=noise=-50dB:d=3 -vn -sn -dn -f null -"
+    params = cmd.split()
+    voice_proc = subprocess.Popen(
+        params, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+    stdout, _ = voice_proc.communicate()
+    output = stdout.decode("utf-8")
+
+    pattern = r"silence_duration: (\d+\.\d+)"
+    matches = re.findall(pattern, output)
+    for match in matches:
+        console.print(f"Silence duration: {match}", style="bold red")
+        if float(match) > 7:
+            return False
+
+    return True
+
+
 def greeting() -> str:
-    current_time = datetime.datetime.now().time()
+    native_datetime = datetime.now()
+    timezone = pytz.timezone("Asia/Taipei")
+    lt = timezone.localize(native_datetime)
+    current_time = lt.time()
+
     time_str = None
-    if current_time < datetime.time(12):
+    if current_time.hour < 12:
         time_str = "Good morning"
-    elif current_time < datetime.time(17):
+    elif current_time.hour < 17:
         time_str = "Good afternoon"
-    elif current_time < datetime.time(20):
+    elif current_time.hour < 20:
         time_str = "Good evening"
     else:
         time_str = "Greeting"
@@ -326,8 +427,10 @@ def greeting() -> str:
         "How are you doing today?",
     ]
     random_greeting = random.choice(greetings)
+    # Format the time object as a string
+    formatted_time = current_time.strftime("%I:%M%p")
 
-    return f"{time_str} Sir, {random_greeting}"
+    return f"{time_str} Sir, it's {formatted_time}, {random_greeting}"
 
 
 def main():
@@ -342,7 +445,7 @@ def main():
     while True:
         if (
             question_starting_time is not None
-            and time.time() - question_starting_time > 30
+            and time.time() - question_starting_time > 60 * 5
         ):
             console.print(
                 "Voice input is now [red bold]off[/] until you call Jarvis again",
@@ -356,9 +459,10 @@ def main():
             question_starting_time = time.time()
             continue
         else:
-            console.print("\n")
             question = voice_recognition()
             if len(question) < 5:
+                console.print("[red bold]Cannot detect voice input[/]")
+                time.sleep(3)
                 continue
             else:
                 console.print(f"Voice Transcript: {question}")
