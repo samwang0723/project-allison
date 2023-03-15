@@ -9,7 +9,10 @@ Training example with openai
 ### Install dependency libraries (using Mac M1/M2)
 In this case we want to support audio input/output, need to do some of the customization
 
-    (venv)$ brew install portaudio
+    $ brew install portaudio
+    $ brew install ffmpeg
+    $ brew install flac
+    (vnev)$ pip install pyaudio
     (venv)$ pip install --upgrade wheel
     (venv)$ pip install -r requirements.txt
 
