@@ -315,7 +315,7 @@ def voice_recognition():
 
 
 def noise_suppression():
-    p = subprocess.Popen(
+    cmds = [
         [
             "ffmpeg",
             "-y",
@@ -326,11 +326,7 @@ def noise_suppression():
             "-af",
             "afftdn=nf=-25",
             "./voice_records/output.wav",
-        ]
-    )
-    p.communicate()
-
-    p = subprocess.Popen(
+        ],
         [
             "ffmpeg",
             "-y",
@@ -341,11 +337,7 @@ def noise_suppression():
             "-af",
             "afftdn=nf=-25",
             "./voice_records/output2.wav",
-        ]
-    )
-    p.communicate()
-
-    p = subprocess.Popen(
+        ],
         [
             "ffmpeg",
             "-y",
@@ -356,11 +348,7 @@ def noise_suppression():
             "-af",
             "highpass=f=200, lowpass=f=3000",
             "./voice_records/output3.wav",
-        ]
-    )
-    p.communicate()
-
-    p = subprocess.Popen(
+        ],
         [
             "ffmpeg",
             "-y",
@@ -371,9 +359,11 @@ def noise_suppression():
             "-af",
             "volume=4",
             "./voice_records/final.wav",
-        ]
-    )
-    p.communicate()
+        ],
+    ]
+    for cmd in cmds:
+        p = subprocess.Popen(cmd)
+        p.communicate()
 
     command = "ffmpeg -hide_banner -stats -i ./voice_records/final.wav -af silencedetect=noise=0dB:d=3 -vn -sn -dn -f null -"
     out = subprocess.Popen(
