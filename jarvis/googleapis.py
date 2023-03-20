@@ -2,6 +2,8 @@ from __future__ import print_function
 
 import os.path
 
+from .constants import STORED_TOKEN, CREDENTIAL_TOKEN
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -12,8 +14,6 @@ from googleapiclient.errors import HttpError
 class Drive:
     # If modifying these scopes, delete the file token.json.
     SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
-    STORED_TOKEN = "./auth/token.json"
-    CREDENTIAL_TOKEN = "./auth/credentials.json"
 
     def __init__(self):
         self.__creds = None
@@ -23,9 +23,9 @@ class Drive:
         # The file token.json stores the user's access and refresh tokens, and is
         # created automatically when the authorization flow completes for the first
         # time.
-        if os.path.exists(self.STORED_TOKEN):
+        if os.path.exists(STORED_TOKEN):
             self.__creds = Credentials.from_authorized_user_file(
-                self.STORED_TOKEN, self.SCOPES
+                STORED_TOKEN, self.SCOPES
             )
         # If there are no (valid) credentials available, let the user log in.
         if not self.__creds or not self.__creds.valid:
@@ -33,11 +33,11 @@ class Drive:
                 self.__creds.refresh(Request())
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    self.CREDENTIAL_TOKEN, self.SCOPES
+                    CREDENTIAL_TOKEN, self.SCOPES
                 )
                 self.__creds = flow.run_local_server(port=0)
             # Save the credentials for the next run
-            with open(self.STORED_TOKEN, "w") as token:
+            with open(STORED_TOKEN, "w") as token:
                 token.write(self.__creds.to_json())
 
     def download_file(self, fileId, mimeType="text/html") -> str:

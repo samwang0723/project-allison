@@ -1,13 +1,13 @@
 import pyaudio
 import openai
 import wave
+from .constants import WAVE_OUTPUT_FILENAME
 
 CHUNK = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
 RECORD_SECONDS = 8
-WAVE_OUTPUT_FILENAME = "../voice_records/voice.wav"
 RECOGNITION_MODEL = "whisper-1"
 
 

@@ -2,6 +2,9 @@ import os
 import openai
 import tiktoken
 import pandas as pd
+
+from .constants import ENV_PATH
+
 from dotenv import load_dotenv
 from openai.embeddings_utils import get_embedding, cosine_similarity
 
@@ -26,7 +29,7 @@ HEADER = """Please perform as a professional Crypto.com domain expert that can a
 
 
 def _init():
-    load_dotenv()
+    load_dotenv(dotenv_path=ENV_PATH)
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
 

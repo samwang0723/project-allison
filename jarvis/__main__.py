@@ -15,6 +15,7 @@ from jarvis.chat import chat_completion, inject_embeddings
 from jarvis.status import ExitStatus
 from jarvis.chat import construct_prompt
 from collections import deque
+from jarvis.constants import MATERIAL_FILE, VOICE_EXE
 
 from rich.console import Console
 from rich.syntax import Syntax
@@ -24,7 +25,6 @@ from rich.console import group
 from rich import box
 
 
-MATERIAL_FILE = "../data/material.csv"
 _last_response = deque(maxlen=3)
 _question_history = deque(maxlen=20)
 _console = Console(width=120)
@@ -117,7 +117,7 @@ def _print_result(response, links):
 
     # calling voice to speaking
     # Execute the voice.py script with a command-line argument using Popen
-    subprocess.Popen(["python3", "voice.py", messages], stdout=subprocess.PIPE)
+    subprocess.Popen(["python3", VOICE_EXE, messages], stdout=subprocess.PIPE)
 
 
 def main():
@@ -138,6 +138,7 @@ def main():
             _console.print("\n")
             question = _console.input("[cyan bold] Question / Command: [/]")
             if question == "exit":
+                exit_status = ExitStatus.ERROR_CTRL_C
                 break
             elif question == "show-prompt":
                 _prompt_on = True

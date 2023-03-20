@@ -3,9 +3,7 @@ import csv
 from .googleapis import Drive
 from .confluence import Wiki
 from rich.progress import Progress
-
-MATERIAL_FILE = "../data/material.csv"
-SOURCE_FILE = "../data/source.csv"
+from .constants import SOURCE_FILE, MATERIAL_FILE
 
 
 def download_content(with_gdrive: bool = False, with_confluence: bool = False):
@@ -42,7 +40,9 @@ def download_content(with_gdrive: bool = False, with_confluence: bool = False):
                 else:
                     link = confluence_wiki.get_link(id, space)
                     if link not in downloaded:
-                        page = confluence_wiki.get_page_by_id(id, expand="body.storage")
+                        page = confluence_wiki.api.get_page_by_id(
+                            id, expand="body.storage"
+                        )
                         pages.append({"space": space, "page": page, "link": link})
 
                 progress.update(task, advance=1)
