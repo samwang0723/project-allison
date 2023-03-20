@@ -65,3 +65,6 @@ class Drive:
             print(f"An error occurred: {error}")
 
         return output
+
+    def get_link(self, id) -> str:
+        return "https://docs.google.com/document/d/" + id
