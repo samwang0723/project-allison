@@ -25,7 +25,8 @@ SEPARATOR = "\n* "
 ENCODING = "gpt2"  # encoding for text-davinci-003
 MIN_SIMILARITY = 0.8
 SEPARATOR_LEN = len(tiktoken.get_encoding(ENCODING).encode(SEPARATOR))
-HEADER = """Please perform as a professional Crypto.com domain expert that can answer questions about Crypto.com specific knowledge giving below context.\n\nContext:\n"""
+HEADER = """\n\n---\n\nPlease perform as a professional Crypto.com domain expert that 
+can answer questions about Crypto.com specific knowledge giving below context.\n\nContext:\n"""
 
 
 def _init():

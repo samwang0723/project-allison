@@ -5,7 +5,6 @@ import numpy as np
 import ast
 import sys
 import time
-import openai
 import subprocess
 
 from jarvis.voice_input import voice_recognition
@@ -74,7 +73,7 @@ def _query(
             "seconds",
             style="bold red",
         )
-    except openai.errors.APIConnectionError:
+    except:
         _console.print(
             "[[ Openai connection reset, wait for 5 secs ]]", style="bold red"
         )
@@ -176,7 +175,8 @@ def main():
                 _console.print(table)
                 continue
             elif question == "voice" or question == "vv":
-                question = voice_recognition()
+                with _console.status("[bold green] Listening the voice"):
+                    question = voice_recognition()
                 _console.print(f"Question from voice: {question}")
 
             elif question == "help":
