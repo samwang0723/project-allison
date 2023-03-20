@@ -1,7 +1,25 @@
-__pycache__/
-venv/
 .DS_Store
 .env
 source.csv
 material.csv
-auth/
+credentials.json
+token.json
+*.wav
+
+# Python files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*$py.class
+
+# Virtual environment
+venv/
+.venv/
+
+# Distribution / packaging
+.Python
+build/
+dist/
+*.egg-info/
+*.egg

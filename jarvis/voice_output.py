@@ -15,8 +15,8 @@ def init_engine():
     return engine
 
 
-def say(s):
-    engine.say(s)
+def say(command):
+    engine.say(command)
     engine.runAndWait()  # blocks
 
 
