@@ -219,7 +219,7 @@ def main():
                 gmail_unread = read_gmail()
                 if len(gmail_unread) > 0:
                     _console.print(
-                        f"[yellow bold] You have {len(gmail_unread)} Unread emails [/]"
+                        f"[yellow bold] You have {len(gmail_unread)} Unread email threads [/]"
                     )
                     for m in gmail_unread:
                         try:
