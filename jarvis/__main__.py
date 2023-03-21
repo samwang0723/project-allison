@@ -15,8 +15,8 @@ from jarvis.status import ExitStatus
 from jarvis.chat import construct_prompt
 from collections import deque
 from jarvis.constants import MATERIAL_FILE, VOICE_EXE
+from jarvis.dynamic_console import console as _console
 
-from rich.console import Console
 from rich.syntax import Syntax
 from rich.table import Table
 from rich.panel import Panel
@@ -26,7 +26,6 @@ from rich import box
 
 _last_response = deque(maxlen=3)
 _question_history = deque(maxlen=20)
-_console = Console(width=120)
 
 
 def _reload_csv():
@@ -90,7 +89,7 @@ def _query(
 
 
 @group()
-def _print_result(response, links):
+def _print_result(response, links, read):
     yield Panel("Answer: ", style="bold green", box=box.SIMPLE)
 
     messages = ""
@@ -116,7 +115,21 @@ def _print_result(response, links):
 
     # calling voice to speaking
     # Execute the voice.py script with a command-line argument using Popen
-    subprocess.Popen(["python3", VOICE_EXE, messages], stdout=subprocess.PIPE)
+    if read:
+        subprocess.Popen(["python3", VOICE_EXE, messages], stdout=subprocess.PIPE)
+
+
+def should_read(command):
+    should_read = False
+    if "Read it out" in command:
+        should_read = True
+    elif "Don't read" in command:
+        should_read = False
+    else:
+        should_read = False
+
+    cleaned_string = command.replace("Read it out", "").replace("Don't read", "")
+    return cleaned_string.strip(), should_read
 
 
 def main():
@@ -132,54 +145,53 @@ def main():
         # Listening input from user
         _prompt_on = False
         _print_similarity = False
+        _read = False
         while True:
             # Note: Python 2.x users should use raw_input, the equivalent of 3.x's input
             _console.print("\n")
-            question = _console.input("[cyan bold] Question / Command: [/]")
-            if question == "exit":
+            command = _console.input("[cyan bold] Question / Command: [/]")
+            if command == "exit":
                 exit_status = ExitStatus.ERROR_CTRL_C
                 break
-            elif question == "show-prompt":
+            elif command == "show-prompt":
                 _prompt_on = True
                 _console.print(
                     "Prompt is now [red bold]on[/] for next conversation", style="cyan"
                 )
                 continue
-            elif question == "hide-prompt":
+            elif command == "hide-prompt":
                 _prompt_on = False
                 _console.print(
                     "Prompt is now [red bold]off[/] for next conversation", style="cyan"
                 )
                 continue
-            elif question == "clear":
+            elif command == "clear":
                 _last_response.clear()
                 _question_history.clear()
                 _console.print("Conversation history cleared", style="cyan")
                 continue
-            elif question == "show-similarity":
+            elif command == "show-similarity":
                 _print_similarity = True
                 _console.print("Enable similarity", style="cyan")
                 continue
-            elif question == "hide-similarity":
+            elif command == "hide-similarity":
                 _print_similarity = False
                 _console.print("Enable similarity", style="cyan")
                 continue
-            elif question == "history":
+            elif command == "history":
                 table = Table(title="")
                 table.add_column(
                     "History Records", justify="middle", style="cyan", no_wrap=True
                 )
                 for r in _question_history:
                     table.add_row(r)
-
                 _console.print(table)
                 continue
-            elif question == "voice" or question == "vv":
+            elif command == "voice" or command == "vv":
                 with _console.status("[bold green] Listening the voice"):
-                    question = voice_recognition()
-                _console.print(f"Question from voice: {question}")
-
-            elif question == "help":
+                    command = voice_recognition()
+                _console.print(f"[yellow bold] Command Received: [/] {command}")
+            elif command == "help":
                 table = Table(title="")
                 table.add_column("Command", justify="middle", no_wrap=True)
                 table.add_column("Description", justify="middle", no_wrap=True)
@@ -200,8 +212,9 @@ def main():
                 _console.print(table)
                 continue
 
+            question, _read = should_read(command)
             response, links = _query(question, final_df, _prompt_on, _print_similarity)
-            _console.print(Panel(_print_result(response, links)))
+            _console.print(Panel(_print_result(response, links, _read)))
     except KeyboardInterrupt:
         exit_status = ExitStatus.ERROR_CTRL_C
 
