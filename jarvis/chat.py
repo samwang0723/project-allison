@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from openai.embeddings_utils import get_embedding, cosine_similarity
 
 COMPLETIONS_MODEL = "gpt-3.5-turbo"
+ADVANCED_MODEL = "gpt-4"
 EMBEDDING_MODEL = "text-embedding-ada-002"
 MAX_SECTION_LEN = 2046
 SEPARATOR = "\n* "

@@ -11,7 +11,12 @@ import pyperclip
 from jarvis.voice_input import voice_recognition
 from jarvis.tokenizer import get_dataframe
 from jarvis.downloader import download_content, read_gmail
-from jarvis.chat import chat_completion, inject_embeddings
+from jarvis.chat import (
+    chat_completion,
+    inject_embeddings,
+    COMPLETIONS_MODEL,
+    ADVANCED_MODEL,
+)
 from jarvis.status import ExitStatus
 from jarvis.chat import construct_prompt
 from jarvis.constants import MATERIAL_FILE, VOICE_EXE
@@ -34,6 +39,35 @@ def _reload_csv():
     df["embeddings"] = df["embeddings"].apply(lambda x: np.array(ast.literal_eval(x)))
 
     return df
+
+
+def _openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024):
+    max_retries = 3
+    retries = 0
+    while retries < max_retries:
+        try:
+            start_time = time.time()
+            response = chat_completion(
+                prompt, query, model=model, max_tokens=max_tokens
+            )
+            end_time = time.time()
+            duration = end_time - start_time
+            _console.print(
+                "openai.ChatCompletion - Duration:",
+                duration,
+                "seconds",
+                style="bold red",
+            )
+            return response
+        except:
+            retries += 1
+            _console.print(
+                "[[ Openai connection reset, wait for 5 secs ]]", style="bold red"
+            )
+            # If the connection is reset, wait for 5 seconds and retry
+            time.sleep(5)
+
+    return None
 
 
 def _query(
@@ -62,25 +96,8 @@ def _query(
 
     if show_prompt:
         _console.print("Prompt:\n\t" + prompt, style="bold green")
-    try:
-        start_time = time.time()
-        response = chat_completion(prompt, query)
-        end_time = time.time()
-        duration = end_time - start_time
-        _console.print(
-            "openai.ChatCompletion - Duration:",
-            duration,
-            "seconds",
-            style="bold red",
-        )
-    except:
-        _console.print(
-            "[[ Openai connection reset, wait for 5 secs ]]", style="bold red"
-        )
-        # If the connection is reset, wait for 5 seconds and retry
-        time.sleep(5)
-        response = chat_completion(prompt, query)
 
+    response = _openai_call()
     output = response["choices"][0]["message"]["content"].strip(" \n")
 
     _last_response.append(output)
@@ -135,14 +152,14 @@ def _print_result(response, links, read):
 
 def should_read(command):
     should_read = False
-    if "Read it out" in command:
+    if ".Read it out" in command:
         should_read = True
-    elif "Don't read" in command:
+    elif ".Don't read" in command:
         should_read = False
     else:
         should_read = False
 
-    cleaned_string = command.replace("Read it out", "").replace("Don't read", "")
+    cleaned_string = command.replace(".Read it out", "").replace(".Don't read", "")
     return cleaned_string.strip(), should_read
 
 
@@ -165,35 +182,36 @@ def main():
             # Note: Python 2.x users should use raw_input, the equivalent of 3.x's input
             _console.print("\n")
             command = _console.input("[cyan bold] Question / Command: [/]")
-            if command == "exit":
+            question, _read = should_read(command)
+            if question == "exit":
                 exit_status = ExitStatus.ERROR_CTRL_C
                 break
-            elif command == "show-prompt":
+            elif question == "show-prompt":
                 _prompt_on = True
                 _console.print(
                     "Prompt is now [red bold]on[/] for next conversation", style="cyan"
                 )
                 continue
-            elif command == "hide-prompt":
+            elif question == "hide-prompt":
                 _prompt_on = False
                 _console.print(
                     "Prompt is now [red bold]off[/] for next conversation", style="cyan"
                 )
                 continue
-            elif command == "clear":
+            elif question == "clear":
                 _last_response.clear()
                 _question_history.clear()
                 _console.print("Conversation history cleared", style="cyan")
                 continue
-            elif command == "show-similarity":
+            elif question == "show-similarity":
                 _print_similarity = True
                 _console.print("Enable similarity", style="cyan")
                 continue
-            elif command == "hide-similarity":
+            elif question == "hide-similarity":
                 _print_similarity = False
                 _console.print("Enable similarity", style="cyan")
                 continue
-            elif command == "history":
+            elif question == "history":
                 table = Table(title="")
                 table.add_column(
                     "History Records", justify="middle", style="cyan", no_wrap=True
@@ -202,11 +220,12 @@ def main():
                     table.add_row(r)
                 _console.print(table)
                 continue
-            elif command == "voice" or command == "vv":
+            elif question == "voice" or question == "vv":
                 with _console.status("[bold green] Listening the voice"):
                     command = voice_recognition()
+                    question, _read = should_read(command)
                 _console.print(f"[yellow bold] Command Received: [/] {command}")
-            elif command == "copy" or command == "cc":
+            elif question == "copy" or question == "cc":
                 if len(_extracted_code) > 0:
                     pyperclip.copy("\n\n".join(_extracted_code))
                     _console.print(f"[yellow bold] Code Copied to Clipboard [/]")
@@ -215,29 +234,19 @@ def main():
                         f"[yellow bold] No code found in the last response [/]"
                     )
                 continue
-            elif command == "gmail":
+            elif question == "gmail":
                 gmail_unread = read_gmail()
                 if len(gmail_unread) > 0:
                     _console.print(
                         f"[yellow bold] You have {len(gmail_unread)} Unread email threads [/]"
                     )
                     for m in gmail_unread:
-                        try:
-                            response = chat_completion(
-                                m,
-                                "please help to summarize the email content",
-                                model="gpt-4",
-                                max_tokens=2048,
-                            )
-                        except:
-                            time.sleep(5)
-                            response = chat_completion(
-                                m,
-                                "please help to summarize the email content",
-                                model="gpt-4",
-                                max_tokens=2048,
-                            )
-
+                        response = _openai_call(
+                            m,
+                            "please help to summarize the email content",
+                            model=ADVANCED_MODEL,
+                            max_tokens=2048,
+                        )
                         output = response["choices"][0]["message"]["content"].strip(
                             " \n"
                         )
@@ -245,7 +254,7 @@ def main():
                 else:
                     _console.print(f"[yellow bold] No unread emails [/]")
                 continue
-            elif command == "help":
+            elif question == "help":
                 table = Table(title="")
                 table.add_column("Command", justify="middle", no_wrap=True)
                 table.add_column("Description", justify="middle", no_wrap=True)
@@ -266,7 +275,6 @@ def main():
                 _console.print(table)
                 continue
 
-            question, _read = should_read(command)
             response, links = _query(question, final_df, _prompt_on, _print_similarity)
             _extracted_code = extract_code(response)
             _console.print(Panel(_print_result(response, links, _read)))
