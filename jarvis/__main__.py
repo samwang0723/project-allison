@@ -10,7 +10,7 @@ import pyperclip
 
 from jarvis.voice_input import voice_recognition
 from jarvis.tokenizer import get_dataframe
-from jarvis.downloader import download_content
+from jarvis.downloader import download_content, read_gmail
 from jarvis.chat import chat_completion, inject_embeddings
 from jarvis.status import ExitStatus
 from jarvis.chat import construct_prompt
@@ -98,6 +98,10 @@ def extract_code(response):
     return code
 
 
+def read(messages):
+    subprocess.Popen(["python3", VOICE_EXE, messages], stdout=subprocess.PIPE)
+
+
 @group()
 def _print_result(response, links, read):
     yield Panel("Answer: ", style="bold green", box=box.SIMPLE)
@@ -111,7 +115,7 @@ def _print_result(response, links, read):
             )
         else:  # Normal part
             message = part.strip("\n")
-            messages += " " + message
+            messages = " ".join(message)
 
             yield Panel(message, box=box.SIMPLE)
 
@@ -126,7 +130,7 @@ def _print_result(response, links, read):
     # calling voice to speaking
     # Execute the voice.py script with a command-line argument using Popen
     if read:
-        subprocess.Popen(["python3", VOICE_EXE, messages], stdout=subprocess.PIPE)
+        read(messages)
 
 
 def should_read(command):
@@ -202,7 +206,7 @@ def main():
                 with _console.status("[bold green] Listening the voice"):
                     command = voice_recognition()
                 _console.print(f"[yellow bold] Command Received: [/] {command}")
-            elif command == "copy":
+            elif command == "copy" or command == "cc":
                 if len(_extracted_code) > 0:
                     pyperclip.copy("\n\n".join(_extracted_code))
                     _console.print(f"[yellow bold] Code Copied to Clipboard [/]")
@@ -210,6 +214,36 @@ def main():
                     _console.print(
                         f"[yellow bold] No code found in the last response [/]"
                     )
+                continue
+            elif command == "gmail":
+                gmail_unread = read_gmail()
+                if len(gmail_unread) > 0:
+                    _console.print(
+                        f"[yellow bold] You have {len(gmail_unread)} Unread emails [/]"
+                    )
+                    for m in gmail_unread:
+                        try:
+                            response = chat_completion(
+                                m,
+                                "please help to summarize the email content",
+                                model="gpt-4",
+                                max_tokens=2048,
+                            )
+                        except:
+                            time.sleep(5)
+                            response = chat_completion(
+                                m,
+                                "please help to summarize the email content",
+                                model="gpt-4",
+                                max_tokens=2048,
+                            )
+
+                        output = response["choices"][0]["message"]["content"].strip(
+                            " \n"
+                        )
+                        _console.print(Panel(_print_result(output, [], _read)))
+                else:
+                    _console.print(f"[yellow bold] No unread emails [/]")
                 continue
             elif command == "help":
                 table = Table(title="")

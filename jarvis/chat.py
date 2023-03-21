@@ -10,16 +10,6 @@ from openai.embeddings_utils import get_embedding, cosine_similarity
 
 COMPLETIONS_MODEL = "gpt-3.5-turbo"
 EMBEDDING_MODEL = "text-embedding-ada-002"
-COMPLETIONS_API_PARAMS = {
-    # We use temperature of 0.0 because
-    # it gives the most predictable, factual answer.
-    "temperature": 0.0,
-    "max_tokens": 1024,
-    "model": COMPLETIONS_MODEL,
-    "top_p": 0.1,
-    "frequency_penalty": 0,
-    "presence_penalty": 0,
-}
 MAX_SECTION_LEN = 2046
 SEPARATOR = "\n* "
 ENCODING = "gpt2"  # encoding for text-davinci-003
@@ -34,9 +24,22 @@ def _init():
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
-def chat_completion(prompt: str, query: str):
+def _params(model: str = COMPLETIONS_MODEL, max_tokens: int = 1024):
+    return {
+        "temperature": 0.0,
+        "max_tokens": max_tokens,
+        "model": model,
+        "top_p": 0.1,
+        "frequency_penalty": 0,
+        "presence_penalty": 0,
+    }
+
+
+def chat_completion(
+    prompt: str, query: str, model: str = COMPLETIONS_MODEL, max_tokens: int = 1024
+):
     return openai.ChatCompletion.create(
-        **COMPLETIONS_API_PARAMS,
+        **_params(model=model, max_tokens=max_tokens),
         messages=[
             {"role": "system", "content": prompt},
             {"role": "user", "content": query},
@@ -66,7 +69,10 @@ def construct_prompt(question: str, df: pd.DataFrame):
         )
         chosen_sections_links.append(document_section.link)
 
-    prompt = HEADER + "".join(chosen_sections)
+    if len(chosen_sections) == 0:
+        prompt = ""
+    else:
+        prompt = HEADER + "".join(chosen_sections)
 
     return (prompt, chosen_sections_links, similarities)
 

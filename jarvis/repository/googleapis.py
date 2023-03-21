@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import os.path
+import base64
 
 from jarvis.constants import STORED_TOKEN, CREDENTIAL_TOKEN
 
@@ -13,7 +14,14 @@ from googleapiclient.errors import HttpError
 
 class Drive:
     # If modifying these scopes, delete the file token.json.
-    SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+    SCOPES = [
+        "https://www.googleapis.com/auth/drive.readonly",
+        "https://www.googleapis.com/auth/gmail.readonly",
+    ]
+    SKIP_SENDER = [
+        "notifications@github.com",
+        "sam.wang@crypto.com",
+    ]
 
     def __init__(self):
         self.__creds = None
@@ -66,5 +74,59 @@ class Drive:
 
         return output
 
+    def clean_email_content(self, email_string):
+        lines = email_string.split(">>")
+        if len(lines) > 1:
+            output = lines[0]
+        else:
+            output = email_string
+
+        return output
+
+    def read_gmail(self):
+        # Create a Gmail API client
+        service = build("gmail", "v1", credentials=self.__creds)
+
+        # Get all unread important emails
+        output = []
+        try:
+            messages = (
+                service.users()
+                .messages()
+                .list(userId="me", q="is:important is:unread", maxResults=10)
+                .execute()
+            )
+            if "messages" in messages:
+                for message in messages["messages"]:
+                    msg = (
+                        service.users()
+                        .messages()
+                        .get(userId="me", id=message["id"])
+                        .execute()
+                    )
+                    headers = msg["payload"]["headers"]
+                    for header in headers:
+                        if header["name"] == "Subject":
+                            title = header["value"]
+                        if header["name"] == "From":
+                            sender = header["value"]
+                    if not self._skip_email(sender):
+                        data = msg["payload"]["parts"][0]["body"]["data"]
+                        byte_code = base64.urlsafe_b64decode(data)
+                        body = byte_code.decode("utf-8")
+                        output.append(
+                            f"[red bold]{title}[/]({sender}) \n {self.clean_email_content(body)}"
+                        )
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+        return output
+
     def get_link(self, id) -> str:
         return "https://docs.google.com/document/d/" + id
+
+    def _skip_email(self, sender):
+        for email in self.SKIP_SENDER:
+            if email in sender:
+                return True
+        return False

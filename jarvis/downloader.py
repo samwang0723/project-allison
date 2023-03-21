@@ -8,6 +8,13 @@ from rich.progress import Progress
 from .constants import SOURCE_FILE, MATERIAL_FILE
 
 
+def read_gmail():
+    google_drive = Drive()
+    google_drive.authenticate()
+
+    return google_drive.read_gmail()
+
+
 def download_content(with_gdrive: bool = False, with_confluence: bool = False):
     if with_gdrive:
         google_drive = Drive()
