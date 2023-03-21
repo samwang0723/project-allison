@@ -1,5 +1,7 @@
 import os
-from .constants import ENV_PATH
+
+from jarvis.constants import ENV_PATH
+
 from dotenv import load_dotenv
 from atlassian import Confluence
 

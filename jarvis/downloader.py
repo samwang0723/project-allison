@@ -1,7 +1,9 @@
 import os
 import csv
-from .googleapis import Drive
-from .confluence import Wiki
+
+from jarvis.repository.confluence import Wiki
+from jarvis.repository.googleapis import Drive
+
 from rich.progress import Progress
 from .constants import SOURCE_FILE, MATERIAL_FILE
 

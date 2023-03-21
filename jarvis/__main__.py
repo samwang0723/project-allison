@@ -9,14 +9,14 @@ import subprocess
 
 from jarvis.voice_input import voice_recognition
 from jarvis.tokenizer import get_dataframe
-from jarvis.adaptor import download_content
+from jarvis.downloader import download_content
 from jarvis.chat import chat_completion, inject_embeddings
 from jarvis.status import ExitStatus
 from jarvis.chat import construct_prompt
-from collections import deque
 from jarvis.constants import MATERIAL_FILE, VOICE_EXE
 from jarvis.dynamic_console import console as _console
 
+from collections import deque
 from rich.syntax import Syntax
 from rich.table import Table
 from rich.panel import Panel

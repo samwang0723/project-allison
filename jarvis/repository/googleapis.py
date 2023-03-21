@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import os.path
 
-from .constants import STORED_TOKEN, CREDENTIAL_TOKEN
+from jarvis.constants import STORED_TOKEN, CREDENTIAL_TOKEN
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
