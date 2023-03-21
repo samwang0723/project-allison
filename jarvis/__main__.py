@@ -6,6 +6,7 @@ import ast
 import sys
 import time
 import subprocess
+import pyperclip
 
 from jarvis.voice_input import voice_recognition
 from jarvis.tokenizer import get_dataframe
@@ -88,6 +89,15 @@ def _query(
     return output, deduped_links
 
 
+def extract_code(response):
+    code = []
+    parts = response.split("```")
+    for i, part in enumerate(parts):
+        if i % 2 == 1:
+            code.append(part)
+    return code
+
+
 @group()
 def _print_result(response, links, read):
     yield Panel("Answer: ", style="bold green", box=box.SIMPLE)
@@ -146,6 +156,7 @@ def main():
         _prompt_on = False
         _print_similarity = False
         _read = False
+        _extracted_code = []
         while True:
             # Note: Python 2.x users should use raw_input, the equivalent of 3.x's input
             _console.print("\n")
@@ -191,6 +202,15 @@ def main():
                 with _console.status("[bold green] Listening the voice"):
                     command = voice_recognition()
                 _console.print(f"[yellow bold] Command Received: [/] {command}")
+            elif command == "copy":
+                if len(_extracted_code) > 0:
+                    pyperclip.copy("\n\n".join(_extracted_code))
+                    _console.print(f"[yellow bold] Code Copied to Clipboard [/]")
+                else:
+                    _console.print(
+                        f"[yellow bold] No code found in the last response [/]"
+                    )
+                continue
             elif command == "help":
                 table = Table(title="")
                 table.add_column("Command", justify="middle", no_wrap=True)
@@ -214,6 +234,7 @@ def main():
 
             question, _read = should_read(command)
             response, links = _query(question, final_df, _prompt_on, _print_similarity)
+            _extracted_code = extract_code(response)
             _console.print(Panel(_print_result(response, links, _read)))
     except KeyboardInterrupt:
         exit_status = ExitStatus.ERROR_CTRL_C
