@@ -7,6 +7,7 @@ import sys
 import time
 import subprocess
 import pyperclip
+import warnings
 
 from jarvis.voice_input import voice_recognition
 from jarvis.tokenizer import get_dataframe
@@ -33,6 +34,8 @@ from rich import box
 _last_response = deque(maxlen=3)
 _question_history = deque(maxlen=20)
 _read_process = None
+
+warnings.filterwarnings("ignore", category=UserWarning)
 
 
 def _query(
@@ -62,7 +65,14 @@ def _query(
     if show_prompt:
         _console.print("Prompt:\n\t" + prompt, style="bold green")
 
-    output = _openai_call()
+    if len(prompt) + len(query) > 2048:
+        model = ADVANCED_MODEL
+        max_tokens = 2048
+    else:
+        model = COMPLETIONS_MODEL
+        max_tokens = 1024
+
+    output = _openai_call(prompt, query, model=model, max_tokens=max_tokens)
     _last_response.append(output)
     _question_history.append(query)
 
@@ -89,10 +99,10 @@ def _openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str
             output = response["choices"][0]["message"]["content"].strip(" \n")
 
             return output
-        except:
+        except Exception as e:
             retries += 1
             _console.print(
-                "[[ Openai connection reset, wait for 5 secs ]]", style="bold red"
+                f"[[ Openai connection reset, wait for 5 secs ]]: {e}", style="bold red"
             )
             # If the connection is reset, wait for 5 seconds and retry
             time.sleep(5)
@@ -105,7 +115,9 @@ def _extract_code(response) -> list:
     parts = response.split("```")
     for i, part in enumerate(parts):
         if i % 2 == 1:
-            code.append(part)
+            code_lines = part.strip().split("\n", 1)
+            code_block = code_lines[1] if len(code_lines) > 1 else code_lines[0]
+            code.append(code_block)
     return code
 
 
@@ -162,8 +174,12 @@ def _print_result(response, links, read):
     parts = response.split("```")
     for i, part in enumerate(parts):
         if i % 2 == 1:  # Syntax-highlighted part
+            code_lines = part.strip().split("\n", 1)
+            code_type = code_lines[0] if len(code_lines) > 1 else "ruby"
+            code_block = code_lines[1] if len(code_lines) > 1 else code_lines[0]
             yield Panel(
-                Syntax(part, "ruby", theme="monokai", line_numbers=True), box=box.SIMPLE
+                Syntax(code_block, code_type, theme="monokai", line_numbers=True),
+                box=box.SIMPLE,
             )
         else:  # Normal part
             message = part.strip("\n")

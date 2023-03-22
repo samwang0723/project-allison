@@ -4,7 +4,7 @@ import re
 import multiprocessing
 import pandas as pd
 from transformers import GPT2TokenizerFast
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 from functools import partial
 from .constants import MATERIAL_FILE
 
@@ -47,7 +47,7 @@ class Parser:
             for item in body:
                 # Calculate number of tokens
                 tl = len(tokenizer.tokenize(item))
-                if tl >= min_tokens and tl <= max_tokens:
+                if tl >= min_tokens:  # and tl <= max_tokens:
                     collect += [(title, link, title + " - " + item, tl)]
 
         return collect
@@ -65,13 +65,12 @@ class Parser:
 
             # Extract the text of all the siblings until the next header tag
             siblings = header_tags[i].next_siblings
-            content = [
-                sibling
-                for sibling in siblings
-                if sibling.name != "h1"
-                and sibling.name != "h2"
-                and sibling.name != "h3"
-            ]
+            content = []
+
+            for sibling in siblings:
+                if sibling.name in ["h1", "h2", "h3"]:
+                    break
+                content.append(sibling)
 
             # Extract the link URLs from the content and append them to the current content
             for sibling in content:
@@ -79,6 +78,8 @@ class Parser:
                     if sibling.name == "a":
                         link_url = sibling["href"]
                         current_content += " " + link_url.strip()
+                    elif isinstance(sibling, NavigableString):
+                        current_content += " " + sibling.strip()
                     else:
                         current_content += " " + sibling.get_text().strip()
                 except:
