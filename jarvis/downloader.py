@@ -52,7 +52,15 @@ def download_content(with_gdrive: bool = False, with_confluence: bool = False):
                         page = confluence_wiki.api.get_page_by_id(
                             id, expand="body.storage"
                         )
-                        pages.append({"space": space, "page": page, "link": link})
+                        attachments = confluence_wiki.get_attachments(id)
+                        pages.append(
+                            {
+                                "space": space,
+                                "page": page,
+                                "link": link,
+                                "attachments": attachments,
+                            }
+                        )
 
                 progress.update(task, advance=1)
 

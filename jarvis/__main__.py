@@ -42,7 +42,7 @@ def _query(
     show_similarity: bool = False,
 ):
     start_time = time.time()
-    prompt, links, similarities = construct_prompt(query, df)
+    prompt, links, similarities, attachments = construct_prompt(query, df)
     end_time = time.time()
     duration = end_time - start_time
     _console.print(
@@ -73,7 +73,7 @@ def _query(
     _last_response.append(output)
     _question_history.append(query)
 
-    return output, deduped_links
+    return output, deduped_links, attachments
 
 
 def _openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str:
@@ -164,7 +164,7 @@ def _helper_table() -> Table:
 
 
 @group()
-def _print_result(response, links, read):
+def _print_result(response, links, attachments, read):
     yield Panel("Answer: ", style="bold green", box=box.SIMPLE)
 
     messages = ""
@@ -189,6 +189,14 @@ def _print_result(response, links, read):
         table.add_column("References", justify="middle", style="cyan", no_wrap=True)
         for l in links:
             table.add_row(l)
+
+        yield Panel(table, box=box.SIMPLE)
+
+    if len(attachments) > 0:
+        table = Table(title="", box=box.SIMPLE)
+        table.add_column("Attachments", justify="middle", style="cyan", no_wrap=True)
+        for a in attachments:
+            table.add_row(a)
 
         yield Panel(table, box=box.SIMPLE)
 
@@ -290,9 +298,11 @@ def main():
                 _console.print(_helper_table())
                 continue
 
-            response, links = _query(question, final_df, _prompt_on, _print_similarity)
+            response, links, attachments = _query(
+                question, final_df, _prompt_on, _print_similarity
+            )
             _extracted_code = _extract_code(response)
-            _console.print(Panel(_print_result(response, links, _read)))
+            _console.print(Panel(_print_result(response, links, attachments, _read)))
     except KeyboardInterrupt:
         exit_status = ExitStatus.ERROR_CTRL_C
         if _read_process is not None:

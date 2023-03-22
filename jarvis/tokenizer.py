@@ -20,6 +20,8 @@ class Parser:
         collect = []
         for item in chunk:
             space = item["space"]
+            attachments = item.get("attachments", [])
+
             if space == "GOOGLE":
                 page = item["page"]
                 link = item["link"]
@@ -48,7 +50,7 @@ class Parser:
                 # Calculate number of tokens
                 tl = len(tokenizer.tokenize(item))
                 if tl >= min_tokens:  # and tl <= max_tokens:
-                    collect += [(title, link, title + " - " + item, tl)]
+                    collect += [(title, link, title + " - " + item, tl, attachments)]
 
         return collect
 
@@ -143,7 +145,9 @@ def get_dataframe(pages) -> pd.DataFrame:
     pool.close()
     pool.join()
 
-    df = pd.DataFrame(collect, columns=["title", "link", "body", "num_tokens"])
+    df = pd.DataFrame(
+        collect, columns=["title", "link", "body", "num_tokens", "attachments"]
+    )
 
     return __merge_old_content(df)
 
