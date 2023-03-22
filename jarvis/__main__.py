@@ -10,15 +10,15 @@ import pyperclip
 
 from jarvis.voice_input import voice_recognition
 from jarvis.tokenizer import get_dataframe
-from jarvis.downloader import download_content, read_gmail
-from jarvis.chat import (
+from jarvis.downloader import download_content, download_gmail
+from jarvis.chat_completion import (
     chat_completion,
     inject_embeddings,
+    construct_prompt,
     COMPLETIONS_MODEL,
     ADVANCED_MODEL,
 )
 from jarvis.status import ExitStatus
-from jarvis.chat import construct_prompt
 from jarvis.constants import MATERIAL_FILE, VOICE_EXE
 from jarvis.dynamic_console import console as _console
 
@@ -32,42 +32,7 @@ from rich import box
 
 _last_response = deque(maxlen=3)
 _question_history = deque(maxlen=20)
-
-
-def _reload_csv():
-    df = pd.read_csv(MATERIAL_FILE)
-    df["embeddings"] = df["embeddings"].apply(lambda x: np.array(ast.literal_eval(x)))
-
-    return df
-
-
-def _openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024):
-    max_retries = 3
-    retries = 0
-    while retries < max_retries:
-        try:
-            start_time = time.time()
-            response = chat_completion(
-                prompt, query, model=model, max_tokens=max_tokens
-            )
-            end_time = time.time()
-            duration = end_time - start_time
-            _console.print(
-                "openai.ChatCompletion - Duration:",
-                duration,
-                "seconds",
-                style="bold red",
-            )
-            return response
-        except:
-            retries += 1
-            _console.print(
-                "[[ Openai connection reset, wait for 5 secs ]]", style="bold red"
-            )
-            # If the connection is reset, wait for 5 seconds and retry
-            time.sleep(5)
-
-    return None
+_read_process = None
 
 
 def _query(
@@ -97,16 +62,45 @@ def _query(
     if show_prompt:
         _console.print("Prompt:\n\t" + prompt, style="bold green")
 
-    response = _openai_call()
-    output = response["choices"][0]["message"]["content"].strip(" \n")
-
+    output = _openai_call()
     _last_response.append(output)
     _question_history.append(query)
 
     return output, deduped_links
 
 
-def extract_code(response):
+def _openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str:
+    max_retries = 3
+    retries = 0
+    while retries < max_retries:
+        try:
+            start_time = time.time()
+            response = chat_completion(
+                prompt, query, model=model, max_tokens=max_tokens
+            )
+            end_time = time.time()
+            duration = end_time - start_time
+            _console.print(
+                "openai.ChatCompletion - Duration:",
+                duration,
+                "seconds",
+                style="bold red",
+            )
+            output = response["choices"][0]["message"]["content"].strip(" \n")
+
+            return output
+        except:
+            retries += 1
+            _console.print(
+                "[[ Openai connection reset, wait for 5 secs ]]", style="bold red"
+            )
+            # If the connection is reset, wait for 5 seconds and retry
+            time.sleep(5)
+
+    return ""
+
+
+def _extract_code(response) -> list:
     code = []
     parts = response.split("```")
     for i, part in enumerate(parts):
@@ -115,8 +109,49 @@ def extract_code(response):
     return code
 
 
-def read(messages):
-    subprocess.Popen(["python3", VOICE_EXE, messages], stdout=subprocess.PIPE)
+def _should_read(command) -> bool:
+    should_read = False
+    if "Read it out" in command:
+        should_read = True
+    elif "Don't read" in command:
+        should_read = False
+    else:
+        should_read = False
+
+    cleaned_string = command.replace("Read it out", "").replace("Don't read", "")
+    return cleaned_string.strip(), should_read
+
+
+def _read(messages):
+    _read_process = subprocess.Popen(
+        ["python3", VOICE_EXE, messages], stdout=subprocess.PIPE
+    )
+
+
+def _reload_csv() -> pd.DataFrame:
+    df = pd.read_csv(MATERIAL_FILE)
+    df["embeddings"] = df["embeddings"].apply(lambda x: np.array(ast.literal_eval(x)))
+
+    return df
+
+
+def _helper_table() -> Table:
+    table = Table(title="")
+    table.add_column("Command", justify="middle", no_wrap=True)
+    table.add_column("Description", justify="middle", no_wrap=True)
+    table.add_row("[cyan bold]exit[/]", "exit the program")
+    table.add_row("[cyan bold]show-prompt[/]", "show prompt for next conversation")
+    table.add_row("[cyan bold]hide-prompt[/]", "hide prompt for next conversation")
+    table.add_row("[cyan bold]clear[/]", "clear conversation history")
+    table.add_row("[cyan bold]history[/]", "show conversation history")
+    table.add_row("[cyan bold]help[/]", "show this help message")
+    table.add_row("[cyan bold]show-similarity[/]", "show similarity")
+    table.add_row("[cyan bold]hide-similarity[/]", "hide similarity")
+    table.add_row("[cyan bold]voice (vv)[/]", "use voice input")
+    table.add_row("[cyan bold]copy (cc)[/]", "copy code to clipboard")
+    table.add_row("[cyan bold]gmail[/]", "get unread gmail")
+
+    return table
 
 
 @group()
@@ -147,20 +182,7 @@ def _print_result(response, links, read):
     # calling voice to speaking
     # Execute the voice.py script with a command-line argument using Popen
     if read:
-        read(messages)
-
-
-def should_read(command):
-    should_read = False
-    if ".Read it out" in command:
-        should_read = True
-    elif ".Don't read" in command:
-        should_read = False
-    else:
-        should_read = False
-
-    cleaned_string = command.replace(".Read it out", "").replace(".Don't read", "")
-    return cleaned_string.strip(), should_read
+        _read(messages)
 
 
 def main():
@@ -182,7 +204,7 @@ def main():
             # Note: Python 2.x users should use raw_input, the equivalent of 3.x's input
             _console.print("\n")
             command = _console.input("[cyan bold] Question / Command: [/]")
-            question, _read = should_read(command)
+            question, _read = _should_read(command)
             if question == "exit":
                 exit_status = ExitStatus.ERROR_CTRL_C
                 break
@@ -223,7 +245,7 @@ def main():
             elif question == "voice" or question == "vv":
                 with _console.status("[bold green] Listening the voice"):
                     command = voice_recognition()
-                    question, _read = should_read(command)
+                    question, _read = _should_read(command)
                 _console.print(f"[yellow bold] Command Received: [/] {command}")
             elif question == "copy" or question == "cc":
                 if len(_extracted_code) > 0:
@@ -235,51 +257,33 @@ def main():
                     )
                 continue
             elif question == "gmail":
-                gmail_unread = read_gmail()
+                gmail_unread = download_gmail()
                 if len(gmail_unread) > 0:
                     _console.print(
                         f"[yellow bold] You have {len(gmail_unread)} Unread email threads [/]"
                     )
                     for m in gmail_unread:
-                        response = _openai_call(
-                            m,
-                            "please help to summarize the email content",
+                        output = _openai_call(
+                            m["body"],
+                            "Help to condense the email context with subject and summary, please not losing critical details",
                             model=ADVANCED_MODEL,
                             max_tokens=2048,
                         )
-                        output = response["choices"][0]["message"]["content"].strip(
-                            " \n"
-                        )
-                        _console.print(Panel(_print_result(output, [], _read)))
+                        _console.print(Panel(_print_result(output, [m["link"]], _read)))
                 else:
                     _console.print(f"[yellow bold] No unread emails [/]")
                 continue
             elif question == "help":
-                table = Table(title="")
-                table.add_column("Command", justify="middle", no_wrap=True)
-                table.add_column("Description", justify="middle", no_wrap=True)
-                table.add_row("[cyan bold]exit[/]", "exit the program")
-                table.add_row(
-                    "[cyan bold]show-prompt[/]", "show prompt for next conversation"
-                )
-                table.add_row(
-                    "[cyan bold]hide-prompt[/]", "hide prompt for next conversation"
-                )
-                table.add_row("[cyan bold]clear[/]", "clear conversation history")
-                table.add_row("[cyan bold]history[/]", "show conversation history")
-                table.add_row("[cyan bold]help[/]", "show this help message")
-                table.add_row("[cyan bold]show-similarity[/]", "show similarity")
-                table.add_row("[cyan bold]hide-similarity[/]", "hide similarity")
-                table.add_row("[cyan bold]voice (vv)[/]", "use voice input")
-
-                _console.print(table)
+                _console.print(_helper_table())
                 continue
 
             response, links = _query(question, final_df, _prompt_on, _print_similarity)
-            _extracted_code = extract_code(response)
+            _extracted_code = _extract_code(response)
             _console.print(Panel(_print_result(response, links, _read)))
     except KeyboardInterrupt:
         exit_status = ExitStatus.ERROR_CTRL_C
+        if _read_process is not None:
+            _read_process.kill()
 
     return exit_status.value
 

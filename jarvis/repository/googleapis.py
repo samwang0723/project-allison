@@ -74,7 +74,7 @@ class Drive:
 
         return output
 
-    def clean_email_content(self, email_string):
+    def extract_content(self, email_string):
         lines = email_string.split(">>")
         if len(lines) > 1:
             output = lines[0]
@@ -83,7 +83,7 @@ class Drive:
 
         return output
 
-    def read_gmail(self):
+    def download_gmail(self):
         # Create a Gmail API client
         service = build("gmail", "v1", credentials=self.__creds)
 
@@ -110,13 +110,22 @@ class Drive:
                             title = header["value"]
                         if header["name"] == "From":
                             sender = header["value"]
-                    if not self._skip_email(sender):
-                        data = msg["payload"]["parts"][0]["body"]["data"]
-                        byte_code = base64.urlsafe_b64decode(data)
-                        body = byte_code.decode("utf-8")
-                        output.append(
-                            f"[red bold]{title}[/]({sender}) \n {self.clean_email_content(body)}"
-                        )
+                    if not self._skip_email_senders(sender):
+                        try:
+                            data = msg["payload"]["parts"][0]["body"]["data"]
+                            byte_code = base64.urlsafe_b64decode(data)
+                            body = self.extract_content(byte_code.decode("utf-8"))
+                            id = msg["id"]
+                            email_link = f"https://mail.google.com/mail/u/0/#inbox/{id}"
+
+                            output.append(
+                                {
+                                    "link": email_link,
+                                    "body": f"Subject: {title} ({sender}) \n {body}",
+                                }
+                            )
+                        except Exception as e:
+                            continue
         except Exception as e:
             print(f"An error occurred: {e}")
 
@@ -125,7 +134,7 @@ class Drive:
     def get_link(self, id) -> str:
         return "https://docs.google.com/document/d/" + id
 
-    def _skip_email(self, sender):
+    def _skip_email_senders(self, sender):
         for email in self.SKIP_SENDER:
             if email in sender:
                 return True
