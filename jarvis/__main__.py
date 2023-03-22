@@ -7,7 +7,6 @@ import sys
 import time
 import subprocess
 import pyperclip
-import warnings
 
 from jarvis.voice_input import voice_recognition
 from jarvis.tokenizer import get_dataframe
@@ -34,8 +33,6 @@ from rich import box
 _last_response = deque(maxlen=3)
 _question_history = deque(maxlen=20)
 _read_process = None
-
-warnings.filterwarnings("ignore", category=UserWarning)
 
 
 def _query(
