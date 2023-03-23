@@ -9,14 +9,13 @@ from functools import partial
 from .constants import MATERIAL_FILE
 
 TOKENIZER = GPT2TokenizerFast.from_pretrained("gpt2")
-MIN_TOKENS = 30
 MAX_TOKENS = 2046
 NLP = spacy.load("en_core_web_sm")
 
 
 class Parser:
     @staticmethod
-    def extract_content(chunk, nlp, tokenizer, min_tokens, max_tokens):
+    def extract_content(chunk, nlp, tokenizer, max_tokens):
         collect = []
         for item in chunk:
             space = item["space"]
@@ -46,11 +45,39 @@ class Parser:
                 soup = BeautifulSoup(htmlbody, "html.parser")
                 body = Parser.parse_html(soup, nlp)
 
+            sum_tokens = 0
+            content = []
             for item in body:
                 # Calculate number of tokens
                 tl = len(tokenizer.tokenize(item))
-                if tl >= min_tokens:  # and tl <= max_tokens:
-                    collect += [(title, link, title + " - " + item, tl, attachments)]
+                if sum_tokens + tl <= max_tokens:
+                    sum_tokens += tl
+                    content.append(item)
+                else:
+                    joined_content = " ".join(content)
+                    collect += [
+                        (
+                            title,
+                            link,
+                            title + " - " + joined_content,
+                            sum_tokens,
+                            attachments,
+                        )
+                    ]
+                    content = [item]
+                    sum_tokens = tl
+
+            if len(content) > 0:
+                joined_content = " ".join(content)
+                collect += [
+                    (
+                        title,
+                        link,
+                        title + " - " + joined_content,
+                        sum_tokens,
+                        attachments,
+                    )
+                ]
 
         return collect
 
@@ -107,7 +134,7 @@ class Parser:
                     contains_verb_noun += 1
 
             if contains_verb_noun >= 2:
-                body.append(current_content + " ")
+                body.append(current_content)
 
             current_content = ""
 
@@ -125,7 +152,6 @@ def get_dataframe(pages) -> pd.DataFrame:
     chunks = [pages[i : i + chunk_size] for i in range(0, len(pages), chunk_size)]
 
     tokenizer = TOKENIZER  # initialize your tokenizer object
-    min_tokens = MIN_TOKENS  # set your minimum number of tokens
     max_tokens = MAX_TOKENS  # set your maximum number of tokens
     nlp = NLP  # initialize your spacy model
     results = pool.map(
@@ -133,7 +159,6 @@ def get_dataframe(pages) -> pd.DataFrame:
             Parser.extract_content,
             nlp=nlp,
             tokenizer=tokenizer,
-            min_tokens=min_tokens,
             max_tokens=max_tokens,
         ),
         chunks,

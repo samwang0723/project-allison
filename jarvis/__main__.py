@@ -29,6 +29,7 @@ from rich.panel import Panel
 from rich.console import group
 from rich import box
 
+USE_GPT_4 = "(gpt-4)"
 
 _last_response = deque(maxlen=3)
 _question_history = deque(maxlen=20)
@@ -62,7 +63,7 @@ def _query(
     if show_prompt:
         _console.print("Prompt:\n\t" + prompt, style="bold green")
 
-    if len(prompt) + len(query) > 2048:
+    if USE_GPT_4 in query or len(prompt) + len(query) > 2048:
         model = ADVANCED_MODEL
         max_tokens = 2048
     else:
@@ -140,6 +141,8 @@ def _read(messages):
 def _reload_csv() -> pd.DataFrame:
     df = pd.read_csv(MATERIAL_FILE)
     df["embeddings"] = df["embeddings"].apply(lambda x: np.array(ast.literal_eval(x)))
+    # Safely convert the 'attachments' column from string to list
+    df["attachments"] = df["attachments"].apply(lambda x: ast.literal_eval(x))
 
     return df
 
@@ -194,7 +197,9 @@ def _print_result(response, links, attachments, read):
 
     if len(attachments) > 0:
         table = Table(title="", box=box.SIMPLE)
-        table.add_column("Attachments", justify="middle", style="cyan", no_wrap=True)
+        table.add_column(
+            "Pdf Links for Reference", justify="middle", style="cyan", no_wrap=True
+        )
         for a in attachments:
             table.add_row(a)
 

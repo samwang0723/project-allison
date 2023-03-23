@@ -63,16 +63,16 @@ def construct_prompt(question: str, df: pd.DataFrame):
             continue
 
         chosen_sections_len += int(document_section.num_tokens) + SEPARATOR_LEN
-        # if chosen_sections_len > MAX_SECTION_LEN:
-        #    break
-        if document_section.num_tokens > 4096:
-            body = document_section.body[:4096]
-        else:
-            body = document_section.body
+        if chosen_sections_len > MAX_SECTION_LEN:
+            break
 
-        chosen_sections.append(str(SEPARATOR + body.replace("\n", " ")))
+        chosen_sections.append(
+            str(SEPARATOR + document_section.body.replace("\n", " "))
+        )
+
         chosen_sections_links.append(document_section.link)
-        chosen_sections_attachments.append(document_section.attachments)
+        if len(document_section.attachments) > 0:
+            chosen_sections_attachments.extend(document_section.attachments)
 
     if len(chosen_sections) == 0:
         prompt = ""

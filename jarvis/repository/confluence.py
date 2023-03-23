@@ -26,7 +26,7 @@ class Wiki:
         )
 
     def get_attachments(self, page_id):
-        supported_types = ["application/pdf", "image/png", "image/jpeg"]
+        supported_types = ["application/pdf"]
         attachments_url = (
             f"{self.host}/wiki/rest/api/content/{page_id}/child/attachment"
         )
