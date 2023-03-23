@@ -182,11 +182,8 @@ def _print_result(response, links, attachments, read):
     parts = response.split("```")
     for i, part in enumerate(parts):
         if i % 2 == 1:  # Syntax-highlighted part
-            code_lines = part.strip().split("\n", 1)
-            code_type = code_lines[0] if len(code_lines) > 1 else "ruby"
-            code_block = code_lines[1] if len(code_lines) > 1 else code_lines[0]
             yield Panel(
-                Syntax(code_block, code_type, theme="monokai", line_numbers=True),
+                Syntax(part, "ruby", theme="monokai", line_numbers=True),
                 box=box.SIMPLE,
             )
         else:  # Normal part
