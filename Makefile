@@ -24,6 +24,8 @@ build: venv ## Build package
 create_dirs: ## Create cache directories for config and data
 	mkdir -p $(HOME)/.jarvis/data
 	mkdir -p $(HOME)/.jarvis/auth
+	mkdir -p $(HOME)/.jarvis/templates
+	cp -r jarvis/templates/* $(HOME)/.jarvis/templates
 
 .PHONY: install
 install: venv create_dirs ## Install packages under virtual environment and create cache directories
