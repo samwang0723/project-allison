@@ -19,9 +19,7 @@ args = parser.parse_args()
 config_path = args.config_path
 
 ENV_PATH = os.path.join(config_path, ".env")
-WAVE_OUTPUT_FILENAME = os.path.join(config_path, "voice_records", "voice.wav")
 MATERIAL_FILE = os.path.join(config_path, "data", "material.csv")
 SOURCE_FILE = os.path.join(config_path, "data", "source.csv")
 STORED_TOKEN = os.path.join(config_path, "auth", "token.json")
 CREDENTIAL_TOKEN = os.path.join(config_path, "auth", "credentials.json")
-VOICE_EXE = os.path.join(config_path, "exe", "voice_output.py")
