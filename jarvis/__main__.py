@@ -119,6 +119,14 @@ def _extract_code(response) -> list:
     return code
 
 
+def _truncate_text(text):
+    max_length = 8192 - 2048
+    if len(text) <= max_length:
+        return text
+    else:
+        return text[:max_length]
+
+
 def _should_read(command) -> bool:
     should_read = False
     if "Read it out" in command:
@@ -290,12 +298,14 @@ def main():
                     )
                     for m in gmail_unread:
                         output = _openai_call(
-                            m["body"],
+                            _truncate_text(m["body"]),
                             "Help to condense the email context with subject and summary, please not losing critical details",
                             model=ADVANCED_MODEL,
                             max_tokens=2048,
                         )
-                        _console.print(Panel(_print_result(output, [m["link"]], _read)))
+                        _console.print(
+                            Panel(_print_result(output, [m["link"]], [], _read))
+                        )
                 else:
                     _console.print(f"[yellow bold] No unread emails [/]")
                 continue

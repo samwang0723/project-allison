@@ -36,14 +36,14 @@ class Parser:
                 title = match.group(1)
                 content = match.group(2)
                 soup = BeautifulSoup(content, "html.parser")
-                body = Parser.parse_html(soup, nlp)
+                body = Parser.parse_html(title, soup, nlp)
             else:
                 page = item["page"]
                 title = page["title"]
                 link = item["link"]
                 htmlbody = page["body"]["storage"]["value"]
                 soup = BeautifulSoup(htmlbody, "html.parser")
-                body = Parser.parse_html(soup, nlp)
+                body = Parser.parse_html(title, soup, nlp)
 
             sum_tokens = 0
             content = []
@@ -82,61 +82,65 @@ class Parser:
         return collect
 
     @staticmethod
-    def parse_html(soup, nlp) -> list[str]:
+    def parse_html(title, soup, nlp) -> list[str]:
         body = []
-
         header_tags = soup.find_all(["h1", "h2", "h3"])
-        current_content = ""
 
-        for i in range(len(header_tags)):
-            # Extract the text from the current header tag
-            header_text = header_tags[i].get_text().strip()
-
-            # Extract the text of all the siblings until the next header tag
-            siblings = header_tags[i].next_siblings
-            content = []
-
-            for sibling in siblings:
-                if sibling.name in ["h1", "h2", "h3"]:
-                    break
-                content.append(sibling)
-
-            # Extract the link URLs from the content and append them to the current content
-            for sibling in content:
-                try:
-                    if sibling.name == "a":
-                        link_url = sibling["href"]
-                        current_content += " " + link_url.strip()
-                    elif isinstance(sibling, NavigableString):
-                        current_content += " " + sibling.strip()
-                    else:
-                        current_content += " " + sibling.get_text().strip()
-                except:
-                    continue
-            # Concatenate the content and add it to the result array
-            # for better mapping
-            current_content = (
-                header_text
-                + ": "
-                + current_content.replace("\n", " ").replace("\r", " ")
-            )
-
-            if "changelog" in current_content.lower():
-                continue
-
-            # Check if the current content contains at least 2 verbs and nouns
-            contains_verb_noun = 0
-            doc = nlp(current_content)
-            for token in doc:
-                if token.pos_ == "VERB":
-                    contains_verb_noun += 1
-                elif token.pos_ == "NOUN":
-                    contains_verb_noun += 1
-
-            if contains_verb_noun >= 2:
-                body.append(current_content)
-
+        if len(header_tags) == 0:
+            # Extract content from paragraph tags if no header tags are found
+            paragraph_tags = soup.find_all("p")
+            for p in paragraph_tags:
+                body.append(
+                    title + ": " + p.get_text().replace("\n", " ").replace("\r", " ")
+                )
+        else:
             current_content = ""
+            for i in range(len(header_tags)):
+                # Extract the text from the current header tag
+                header_text = header_tags[i].get_text().strip()
+
+                # Extract the text of all the siblings until the next header tag
+                siblings = header_tags[i].next_siblings
+                content = []
+
+                for sibling in siblings:
+                    if sibling.name in ["h1", "h2", "h3"]:
+                        break
+                    content.append(sibling)
+                # Extract the link URLs from the content and append them to the current content
+                for sibling in content:
+                    try:
+                        if sibling.name == "a":
+                            link_url = sibling["href"]
+                            current_content += " " + link_url.strip()
+                        elif isinstance(sibling, NavigableString):
+                            current_content += " " + sibling.strip()
+                        else:
+                            current_content += " " + sibling.get_text().strip()
+                    except Exception as e:
+                        print(f"Error: {e}")
+                        continue
+                # Concatenate the content and add it to the result array
+                # for better mapping
+                current_content = (
+                    header_text
+                    + ": "
+                    + current_content.replace("\n", " ").replace("\r", " ")
+                )
+
+                # Check if the current content contains at least 2 verbs and nouns
+                contains_verb_noun = 0
+                doc = nlp(current_content)
+                for token in doc:
+                    if token.pos_ == "VERB":
+                        contains_verb_noun += 1
+                    elif token.pos_ == "NOUN":
+                        contains_verb_noun += 1
+
+                if contains_verb_noun >= 2:
+                    body.append(current_content)
+
+                current_content = ""
 
         return body
 
