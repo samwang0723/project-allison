@@ -25,7 +25,9 @@ create_dirs: ## Create cache directories for config and data
 	mkdir -p $(HOME)/.jarvis/data
 	mkdir -p $(HOME)/.jarvis/auth
 	mkdir -p $(HOME)/.jarvis/templates
+	mkdir -p $(HOME)/.jarvis/static
 	cp -r jarvis/templates/* $(HOME)/.jarvis/templates
+	cp -r jarvis/static/* $(HOME)/.jarvis/static
 
 .PHONY: install
 install: venv create_dirs ## Install packages under virtual environment and create cache directories

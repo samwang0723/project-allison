@@ -17,7 +17,7 @@ from jarvis.chat_completion import (
     ADVANCED_MODEL,
 )
 from jarvis.status import ExitStatus
-from jarvis.constants import MATERIAL_FILE, TEMPLATE_FOLDER
+from jarvis.constants import MATERIAL_FILE, TEMPLATE_FOLDER, STATIC_FOLDER
 
 from collections import deque
 from flask import Flask, render_template
@@ -26,7 +26,7 @@ from flask_socketio import SocketIO, send
 USE_GPT_4 = "(gpt-4)"
 
 eventlet.monkey_patch()
-app = Flask(__name__, template_folder=TEMPLATE_FOLDER)
+app = Flask(__name__, template_folder=TEMPLATE_FOLDER, static_folder=STATIC_FOLDER)
 socketio = SocketIO(app)
 
 _last_response = deque(maxlen=3)
@@ -98,27 +98,6 @@ def _reload_csv():
     _cached_df.append(df)
 
 
-def _get_latest_gmail() -> list:
-    response = []
-    gmail_unread = download_gmail()
-    if len(gmail_unread) > 0:
-        for m in gmail_unread:
-            output = _openai_call(
-                _truncate_text(m["body"]),
-                "Help to condense the email context with subject and summary, please not losing critical details",
-                model=ADVANCED_MODEL,
-                max_tokens=2048,
-            )
-            response.append(
-                {
-                    "link": m["link"],
-                    "summary": output,
-                }
-            )
-
-    return response
-
-
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -127,9 +106,24 @@ def index():
 @socketio.on("message")
 def handle_message(message):
     print("Received message: " + message)
-    # Process the message and generate a response (you can use your Python function here)
-    response, links, attachments = _query(message)
-    send(response)
+    if message == "gmail":
+        gmail_unread = download_gmail()
+        if len(gmail_unread) > 0:
+            send(f"You have {len(gmail_unread)} unread emails")
+            for m in gmail_unread:
+                output = _openai_call(
+                    _truncate_text(m["body"]),
+                    "Help to condense the email context with subject and summary, please not losing critical details",
+                    model=ADVANCED_MODEL,
+                    max_tokens=2048,
+                )
+                send(output)
+        else:
+            send("No unread emails.")
+    else:
+        # Process the message and generate a response (you can use your Python function here)
+        response, links, attachments = _query(message)
+        send(response)
 
 
 def main():
@@ -140,7 +134,7 @@ def main():
     # Reload CSV once to prevent formatting misalignment
     _reload_csv()
     # Listening input from user
-    socketio.run(app, debug=True)
+    socketio.run(app, port=8000, debug=True)
 
     return ExitStatus.ERROR_CTRL_C.value
 
