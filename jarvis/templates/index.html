@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -17,15 +17,33 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/prism.css') }}">
     <script src="{{ url_for('static', filename='js/prism.js') }}"></script>
 
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js"></script>
 
     <style>
+        @font-face {
+            font-family: 'SauceCodePro';
+            src: url("{{ url_for('static', filename='fonts/scp_italic_mono.ttf') }}") format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'SauceCodePro';
+            src: url("{{ url_for('static', filename='fonts/scp_italic_mono_bold.ttf') }}") format('truetype');
+            font-weight: bold;
+            font-style: normal;
+        }
+
+
         pre[class*="language-"] {
+            font-family: 'SauceCodePro';
             font-size: 14px !important;
         }
 
         #messages {
             flex-direction: column;
             height: 80vh;
+            width: 100%;
             overflow-y: scroll;
         }
 
@@ -62,12 +80,25 @@
         }
 
         .span {
-            font-size: 12px;
+            font-size: 14px;
             padding: 10px;
         }
 
         .code-toolbar {
             width: 100%;
+        }
+
+        body {
+            font-size: 14px;
+            font-family: 'SauceCodePro';
+        }
+
+        input {
+            font-family: 'SauceCodePro';
+        }
+
+        button {
+            font-family: 'SauceCodePro';
         }
     </style>
 
@@ -84,7 +115,8 @@
             <div class="col-12">
                 <form id="chat_form">
                     <div class="input-group mb-3">
-                        <input type="text" id="message_input" class="form-control" aria-describedby="button-submit">
+                        <input type="text" id="message_input" class="form-control"
+                            placeholder="Ask you questions here..." aria-describedby="button-submit">
                         <button class="btn btn-outline-secondary" type="submit" id="button-submit">Send</button>
                     </div>
                 </form>
@@ -113,33 +145,72 @@
             });
         });
 
+        function linkify(inputText) {
+            var replacedText, replacePattern1, replacePattern2, replacePattern3;
+
+            //URLs starting with http://, https://, or ftp://
+            replacePattern1 = /(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gim;
+            replacedText = inputText.replace(replacePattern1, '[$1]($1)');
+
+            //URLs starting with "www." (without // before it, or it'd re-link the ones done above).
+            replacePattern2 = /(^|[^\/])(www\.[\S]+(\b|$))/gim;
+            replacedText = replacedText.replace(replacePattern2, '[$1]($2)');
+
+            //Change email addresses to mailto:: links.
+            replacePattern3 = /(([a-zA-Z0-9\-\_\.])+@[a-zA-Z\_]+?(\.[a-zA-Z]{2,6})+)/gim;
+            replacedText = replacedText.replace(replacePattern3, '[$1](mailto:$1)');
+
+            return replacedText;
+        }
+
+        function boldify(inputText) {
+            var replacedText, replacePattern1;
+
+            replacePattern1 = /(Subject:|Summary:|Description:|Sources:|Attachments:)/gim;
+            replacedText = inputText.replace(replacePattern1, '**$1**');
+
+            return replacedText;
+        }
+
         function addMessageRow(sender, message) {
             let messageRow = document.createElement("div");
             messageRow.classList.add("message-row");
 
             let messageSender = document.createElement("span");
             messageSender.classList.add("message-sender");
-            messageSender.textContent = sender + ":";
+            messageSender.textContent = sender;
             messageRow.appendChild(messageSender);
 
             let messageText = document.createElement("span");
             messageText.classList.add("message-body");
-            messageText.innerHTML = message.replace(/```([\s\S]+?)```/g, function (match, raw) {
-                let lines = raw.split('\n');
-                let language = lines.shift().trim(); // Remove the first line, which contains the language identifier.
-                let code = lines.join('\n');
-                return (
-                    '<pre class="prettyprint line-numbers language-markup">' +
-                    '<code class="language-' + language + '">' + code + '</code>' +
-                    '</pre>'
-                );
-            });
+
+            const lines = message.split('```');
+            let output = '';
+
+            for (let i = 0; i < lines.length; i++) {
+                msg = lines[i];
+                if (i % 2 === 1) {
+                    let code_lines = msg.split('\n');
+                    let language = code_lines.shift().trim(); // Remove the first line, which contains the language identifier.
+                    let code = code_lines.join('\n');
+                    output += '<pre class="prettyprint line-numbers language-markup">' +
+                        '<code class="language-' + language + '">' + code + '</code>' +
+                        '</pre>';
+                } else {
+                    //html = msg.replace("\n", "<p>")
+                    linkified = linkify(msg);
+                    boldified = boldify(linkified);
+                    const md = window.markdownit();
+                    const outputText = md.render(boldified);
+                    output += outputText;
+                }
+            }
+            messageText.innerHTML = output;
             messageRow.appendChild(messageText);
 
             let messageTail = document.createElement("span");
             messageTail.classList.add("message-tail");
             messageRow.appendChild(messageTail);
-
 
             let messages = document.getElementById("messages");
             messages.appendChild(messageRow);

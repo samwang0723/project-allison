@@ -109,20 +109,29 @@ def handle_message(message):
     if message == "gmail":
         gmail_unread = download_gmail()
         if len(gmail_unread) > 0:
-            send(f"You have {len(gmail_unread)} unread emails")
+            send(f"You have **`{len(gmail_unread)}`** unread emails")
             for m in gmail_unread:
                 output = _openai_call(
                     _truncate_text(m["body"]),
-                    "Help to condense the email context with subject and summary, please not losing critical details",
+                    "[DO NOT create a email response] Condense the email context with subject and summary, not losing critical details.",
                     model=ADVANCED_MODEL,
                     max_tokens=2048,
                 )
-                send(output)
+                send(output + "\n\nSources:\n\t" + m["link"])
         else:
             send("No unread emails.")
     else:
         # Process the message and generate a response (you can use your Python function here)
         response, links, attachments = _query(message)
+        if len(links) > 0:
+            response += "\n\nSources:\n"
+        for link in links:
+            response += f"\t{link}\n"
+        if len(attachments) > 0:
+            response += "\n\nAttachments:\n"
+        for attachment in attachments:
+            response += f"\t{attachment}\n"
+
         send(response)
 
 
