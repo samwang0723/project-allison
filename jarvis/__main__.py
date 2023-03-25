@@ -78,7 +78,6 @@ def _openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str
                 chunk_message = chunk["choices"][0]["delta"]
                 collected_messages.append(chunk_message)
                 # print the delay and text
-                print(f"Message received: {chunk_message}")
                 if "content" in chunk_message:
                     send(chunk_message["content"])
 
@@ -104,6 +103,8 @@ def _truncate_text(text):
 
 
 def _reload_csv():
+    _cached_df.clear()
+
     df = pd.read_csv(MATERIAL_FILE)
     df["embeddings"] = df["embeddings"].apply(lambda x: np.array(ast.literal_eval(x)))
     # Safely convert the 'attachments' column from string to list
@@ -120,21 +121,28 @@ def index():
 @socketio.on("message")
 def handle_message(message):
     print("Received message: " + message)
-    if message == "gmail":
-        gmail_unread = download_gmail()
-        if len(gmail_unread) > 0:
-            send(f"You have **`{len(gmail_unread)}`** unread emails")
-            for m in gmail_unread:
-                send("\n\n---\n\n")
-                _openai_call(
-                    _truncate_text(m["body"]),
-                    "[DO NOT create a email response] Condense the email context with subject and summary, not losing critical details.",
-                    model=ADVANCED_MODEL,
-                    max_tokens=2048,
-                )
-                send("\n\nSources:\n\t" + m["link"])
-        else:
-            send("No unread emails.")
+    if "command:" in message:
+        if "gmail" in message:
+            gmail_unread = download_gmail()
+            if len(gmail_unread) > 0:
+                send(f"You have ___`{len(gmail_unread)}`___ unread emails")
+                for m in gmail_unread:
+                    send("\n\n---\n\n")
+                    _openai_call(
+                        _truncate_text(m["body"]),
+                        "[DO NOT create a email response] Condense the email context with subject and summary, not losing critical details.",
+                        model=ADVANCED_MODEL,
+                        max_tokens=2048,
+                    )
+                    send("\n\nSources:\n\t" + m["link"])
+            else:
+                send("No unread emails.")
+        elif "reset session" in message:
+            _last_response.clear()
+            send("Session being reset successfully.")
+        elif "reload csv" in message:
+            _reload_csv()
+            send("CSV sources reloaded.")
     else:
         # Process the message and generate a response (you can use your Python function here)
         _, links, attachments = _query(message)

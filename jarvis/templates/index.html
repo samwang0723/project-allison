@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jarvis - Your Best AI Assistant</title>
+    <title>Allison - Your Private Assistant</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -131,6 +131,7 @@
     <script>
         let activeDiv = null;
         let currentMsg = "";
+        let refreshBottom = true;
 
         $(document).ready(function () {
             var socket = io.connect('http://' + document.domain + ':' + location.port, {transports: ['websocket']});
@@ -147,22 +148,40 @@
                     return;
                 }
 
+                currentMsg += data;
                 if (!activeDiv) {
-                    addMessageRow("Jarvis", data);
-                } else {
-                    currentMsg += data;
-                    formatMessage(currentMsg);
+                    addMessageRow("allison", data);
                 }
+                formatMessage(currentMsg);
             });
 
             $('#chat_form').on('submit', function (e) {
                 e.preventDefault();
                 var message = $('#message_input').val();
-                addMessageRow("Sam", message);
+
+                addMessageRow("user", message);
+                formatMessage(message);
+
                 socket.emit('message', message);
+
+                // reset the input field and cache values
                 $('#message_input').val('');
                 activeDiv = null;
                 currentMsg = "";
+            });
+
+            let messages = document.getElementById("messages");
+            messages.addEventListener('scroll', function () {
+                // Check if the user just scrolled
+                if (messages.scrollTop + messages.clientHeight >= messages.scrollHeight - 60) {
+                    // User scrolled to the bottom, do something
+                    console.log('User scrolled to the bottom');
+                    refreshBottom = true;
+                } else {
+                    // User scrolled, but not to the bottom, do something else
+                    console.log('User scrolled, but not to the bottom');
+                    refreshBottom = false;
+                }
             });
         });
 
@@ -188,7 +207,7 @@
             var replacedText, replacePattern1;
 
             replacePattern1 = /(Subject:|Summary:|Description:|Sources:|Attachments:)/gim;
-            replacedText = inputText.replace(replacePattern1, '**$1**');
+            replacedText = inputText.replace(replacePattern1, '___$1___');
 
             return replacedText;
         }
@@ -199,15 +218,12 @@
 
             let messageSender = document.createElement("span");
             messageSender.classList.add("message-sender");
-            messageSender.textContent = sender;
+            messageSender.innerHTML = '<img width="50px" height="50px" src="static/' + sender + '.svg">';
             messageRow.appendChild(messageSender);
 
             let messageText = document.createElement("span");
             messageText.classList.add("message-body");
             activeDiv = messageText;
-
-            appendMessage(message);
-
             messageRow.appendChild(messageText);
 
             let messageTail = document.createElement("span");
@@ -244,9 +260,10 @@
             // Apply Prism.js syntax highlighting to the newly added code block(s).
             Prism.highlightAllUnder(activeDiv);
 
-            // Scroll to the bottom of the messages div.
-            let messages = document.getElementById("messages");
-            messages.scrollTop = messages.scrollHeight;
+            if (refreshBottom) {
+                let messages = document.getElementById("messages");
+                messages.scrollTop = messages.scrollHeight;
+            }
         }
 
     </script>
