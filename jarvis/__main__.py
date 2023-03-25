@@ -113,6 +113,40 @@ def _reload_csv():
     _cached_df.append(df)
 
 
+def _handle_command(message):
+    if "gmail" in message:
+        gmail_unread = download_gmail()
+        if len(gmail_unread) > 0:
+            send(f"You have ___`{len(gmail_unread)}`___ unread emails")
+            for m in gmail_unread:
+                send("\n\n---\n\n")
+                _openai_call(
+                    _truncate_text(m["body"]),
+                    "[DO NOT create a email response] Condense the email context with subject and summary, not losing critical details.",
+                    model=ADVANCED_MODEL,
+                    max_tokens=2048,
+                )
+                send("\n\nSources:\n\t" + m["link"])
+        else:
+            send("No unread emails.")
+    elif "reset session" in message:
+        _last_response.clear()
+        send("Session being reset successfully.")
+    elif "reload csv" in message:
+        _reload_csv()
+        send("CSV sources reloaded.")
+    elif "save:" in message:
+        # parse the message to get the file name
+        lines = message.split("save:")[1].split("\n")
+        file_name = lines[0].strip()
+        content = "\n".join(lines[1:]).strip()
+        content = content.replace("```\n", "").replace("\n```", "")
+        full_path = f"{STATIC_FOLDER}/tmp/{file_name}"
+        with open(full_path, "w") as f:
+            f.write(content)
+        send(f"File `{full_path}` saved successfully.")
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -121,44 +155,27 @@ def index():
 @socketio.on("message")
 def handle_message(message):
     print("Received message: " + message)
-    if "command:" in message:
-        if "gmail" in message:
-            gmail_unread = download_gmail()
-            if len(gmail_unread) > 0:
-                send(f"You have ___`{len(gmail_unread)}`___ unread emails")
-                for m in gmail_unread:
-                    send("\n\n---\n\n")
-                    _openai_call(
-                        _truncate_text(m["body"]),
-                        "[DO NOT create a email response] Condense the email context with subject and summary, not losing critical details.",
-                        model=ADVANCED_MODEL,
-                        max_tokens=2048,
-                    )
-                    send("\n\nSources:\n\t" + m["link"])
-            else:
-                send("No unread emails.")
-        elif "reset session" in message:
-            _last_response.clear()
-            send("Session being reset successfully.")
-        elif "reload csv" in message:
-            _reload_csv()
-            send("CSV sources reloaded.")
-    else:
-        # Process the message and generate a response (you can use your Python function here)
-        _, links, attachments = _query(message)
-        output = ""
-        if len(links) > 0:
-            output += "\n\nSources:\n"
-        for link in links:
-            output += f"\t{link}\n"
-        if len(attachments) > 0:
-            output += "\n\nAttachments:\n"
-        for attachment in attachments:
-            output += f"\t{attachment}\n"
+    try:
+        if "command:" in message:
+            _handle_command(message)
+        else:
+            # Process the message and generate a response (you can use your Python function here)
+            _, links, attachments = _query(message)
+            output = ""
+            if len(links) > 0:
+                output += "\n\nSources:\n"
+            for link in links:
+                output += f"\t{link}\n"
+            if len(attachments) > 0:
+                output += "\n\nAttachments:\n"
+            for attachment in attachments:
+                output += f"\t{attachment}\n"
 
-        send(output)
+            send(output)
 
-    send("[[stop]]")
+        send("[[stop]]")
+    except Exception as e:
+        send(f"Error occurred: {e}")
 
 
 def main():

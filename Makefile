@@ -26,6 +26,7 @@ create_dirs: ## Create cache directories for config and data
 	mkdir -p $(HOME)/.jarvis/auth
 	mkdir -p $(HOME)/.jarvis/templates
 	mkdir -p $(HOME)/.jarvis/static
+	mkdir -p $(HOME)/.jarvis/static/tmp
 	cp -r jarvis/templates/* $(HOME)/.jarvis/templates
 	cp -r jarvis/static/* $(HOME)/.jarvis/static
 

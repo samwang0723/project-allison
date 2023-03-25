@@ -40,11 +40,37 @@
             font-size: 14px !important;
         }
 
-        #messages {
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            font-family: 'SauceCodePro';
+        }
+
+        .container {
+            display: flex;
             flex-direction: column;
-            height: 80vh;
+            justify-content: space-between;
+            height: 100%;
             width: 100%;
+        }
+
+        #messages {
+            flex: 1;
             overflow-y: scroll;
+            padding: 10px;
         }
 
         .message-row {
@@ -92,17 +118,59 @@
             width: 100%;
         }
 
-        body {
-            font-size: 14px;
+        #message-input {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            /* Align to the bottom */
+            height: auto;
+            min-height: 10%;
+            max-height: 50%;
+            width: 100%;
+            /* Adjust this value to limit the height of the message-input div */
+            padding: 10px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        #chat_form {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            position: relative;
+        }
+
+        .message-input-group {
+            display: flex;
+            width: 100%;
+            position: relative;
+        }
+
+        .form-control {
+            flex: 1;
+            height: 52px;
+            position: relative;
+        }
+
+        #message-textfield {
+            font-family: 'SauceCodePro';
+            resize: none;
+            max-height: 400px;
+            /* 1.5em is the default line height, 4px for padding, 2px for border */
+            overflow-y: auto;
+            width: 100%;
+            padding-right: 80px;
+        }
+
+        #button-submit {
             font-family: 'SauceCodePro';
         }
 
-        input {
-            font-family: 'SauceCodePro';
-        }
-
-        button {
-            font-family: 'SauceCodePro';
+        .input-group-prepend {
+            position: absolute;
+            right: 10px;
+            bottom: 10px;
         }
     </style>
 
@@ -110,21 +178,17 @@
 
 <body>
     <div class="container">
-        <div class="row mt-5">
-            <div class="col-12">
-                <div id="messages"></div>
-            </div>
-        </div>
-        <div class="row mt-3">
-            <div class="col-12">
-                <form id="chat_form">
-                    <div class="input-group mb-3">
-                        <input type="text" id="message_input" class="form-control"
-                            placeholder="Ask your questions here..." aria-describedby="button-submit">
-                        <button class="btn btn-info" type="submit" id="button-submit">Send</button>
+        <div id="messages"></div>
+        <div id="message-input">
+            <form id="chat_form">
+                <div class="message-input-group">
+                    <textarea rows="1" id="message-textfield" class="form-control"
+                        placeholder="Ask your questions here..."></textarea>
+                    <div class="input-group-prepend">
+                        <button class="btn btn-dark btn-sm" type="submit" id="button-submit">Send</button>
                     </div>
-                </form>
-            </div>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -157,7 +221,10 @@
 
             $('#chat_form').on('submit', function (e) {
                 e.preventDefault();
-                var message = $('#message_input').val();
+                var message = $('#message-textfield').val();
+                if (message === "") {
+                    return;
+                }
 
                 addMessageRow("user", message);
                 formatMessage(message);
@@ -165,21 +232,32 @@
                 socket.emit('message', message);
 
                 // reset the input field and cache values
-                $('#message_input').val('');
+                $('#message-textfield').val('');
                 activeDiv = null;
                 currentMsg = "";
             });
 
-            let messages = document.getElementById("messages");
+            const messageInput = document.getElementById('message-textfield');
+            messageInput.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter' && event.shiftKey) {
+                    event.preventDefault();
+                    const value = this.value;
+                    this.value = value + '\n';
+                }
+            });
+            messageInput.oninput = function () {
+                messageInput.style.height = "52px";
+                messageInput.style.height = Math.min(messageInput.scrollHeight, 400) + "px";
+            };
+
+            const messages = document.getElementById("messages");
             messages.addEventListener('scroll', function () {
                 // Check if the user just scrolled
                 if (messages.scrollTop + messages.clientHeight >= messages.scrollHeight - 60) {
                     // User scrolled to the bottom, do something
-                    console.log('User scrolled to the bottom');
                     refreshBottom = true;
                 } else {
                     // User scrolled, but not to the bottom, do something else
-                    console.log('User scrolled, but not to the bottom');
                     refreshBottom = false;
                 }
             });
