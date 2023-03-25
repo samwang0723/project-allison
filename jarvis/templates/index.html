@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Python Chat</title>
+    <title>Jarvis - Your Best AI Assistant</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -56,6 +56,10 @@
             justify-content: space-around;
             padding-top: 10px;
             padding-bottom: 10px;
+        }
+
+        .message-row:nth-child(even) {
+            background-color: #e8e9eb;
         }
 
         .message-sender {
@@ -116,8 +120,8 @@
                 <form id="chat_form">
                     <div class="input-group mb-3">
                         <input type="text" id="message_input" class="form-control"
-                            placeholder="Ask you questions here..." aria-describedby="button-submit">
-                        <button class="btn btn-outline-secondary" type="submit" id="button-submit">Send</button>
+                            placeholder="Ask your questions here..." aria-describedby="button-submit">
+                        <button class="btn btn-info" type="submit" id="button-submit">Send</button>
                     </div>
                 </form>
             </div>
@@ -125,6 +129,9 @@
     </div>
 
     <script>
+        let activeDiv = null;
+        let currentMsg = "";
+
         $(document).ready(function () {
             var socket = io.connect('http://' + document.domain + ':' + location.port, {transports: ['websocket']});
 
@@ -133,7 +140,19 @@
             });
 
             socket.on('message', function (data) {
-                addMessageRow("Jarvis", data);
+                // If the message is "[[stop]]", reset the activeDiv
+                if (data === "[[stop]]") {
+                    activeDiv = null;
+                    currentMsg = "";
+                    return;
+                }
+
+                if (!activeDiv) {
+                    addMessageRow("Jarvis", data);
+                } else {
+                    currentMsg += data;
+                    formatMessage(currentMsg);
+                }
             });
 
             $('#chat_form').on('submit', function (e) {
@@ -142,6 +161,8 @@
                 addMessageRow("Sam", message);
                 socket.emit('message', message);
                 $('#message_input').val('');
+                activeDiv = null;
+                currentMsg = "";
             });
         });
 
@@ -183,7 +204,21 @@
 
             let messageText = document.createElement("span");
             messageText.classList.add("message-body");
+            activeDiv = messageText;
 
+            appendMessage(message);
+
+            messageRow.appendChild(messageText);
+
+            let messageTail = document.createElement("span");
+            messageTail.classList.add("message-tail");
+            messageRow.appendChild(messageTail);
+
+            let messages = document.getElementById("messages");
+            messages.appendChild(messageRow);
+        }
+
+        function formatMessage(message) {
             const lines = message.split('```');
             let output = '';
 
@@ -197,7 +232,6 @@
                         '<code class="language-' + language + '">' + code + '</code>' +
                         '</pre>';
                 } else {
-                    //html = msg.replace("\n", "<p>")
                     linkified = linkify(msg);
                     boldified = boldify(linkified);
                     const md = window.markdownit();
@@ -205,21 +239,14 @@
                     output += outputText;
                 }
             }
-            messageText.innerHTML = output;
-            messageRow.appendChild(messageText);
 
-            let messageTail = document.createElement("span");
-            messageTail.classList.add("message-tail");
-            messageRow.appendChild(messageTail);
-
-            let messages = document.getElementById("messages");
-            messages.appendChild(messageRow);
+            activeDiv.innerHTML = output;
+            // Apply Prism.js syntax highlighting to the newly added code block(s).
+            Prism.highlightAllUnder(activeDiv);
 
             // Scroll to the bottom of the messages div.
+            let messages = document.getElementById("messages");
             messages.scrollTop = messages.scrollHeight;
-
-            // Apply Prism.js syntax highlighting to the newly added code block(s).
-            Prism.highlightAllUnder(messageRow);
         }
 
     </script>

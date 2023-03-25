@@ -69,9 +69,23 @@ def _openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str
             response = chat_completion(
                 prompt, query, model=model, max_tokens=max_tokens
             )
-            output = response["choices"][0]["message"]["content"].strip(" \n")
+            # output = response["choices"][0]["message"]["content"].strip(" \n")
+            # create variables to collect the stream of chunks
+            # iterate through the stream of events
+            collected_messages = []
+            for chunk in response:
+                # extract the message
+                chunk_message = chunk["choices"][0]["delta"]
+                collected_messages.append(chunk_message)
+                # print the delay and text
+                print(f"Message received: {chunk_message}")
+                if "content" in chunk_message:
+                    send(chunk_message["content"])
 
-            return output
+            full_reply_content = "".join(
+                [m.get("content", "") for m in collected_messages]
+            )
+            return full_reply_content
         except Exception as e:
             retries += 1
             # If the connection is reset, wait for 5 seconds and retry
@@ -111,28 +125,32 @@ def handle_message(message):
         if len(gmail_unread) > 0:
             send(f"You have **`{len(gmail_unread)}`** unread emails")
             for m in gmail_unread:
-                output = _openai_call(
+                send("\n\n---\n\n")
+                _openai_call(
                     _truncate_text(m["body"]),
                     "[DO NOT create a email response] Condense the email context with subject and summary, not losing critical details.",
                     model=ADVANCED_MODEL,
                     max_tokens=2048,
                 )
-                send(output + "\n\nSources:\n\t" + m["link"])
+                send("\n\nSources:\n\t" + m["link"])
         else:
             send("No unread emails.")
     else:
         # Process the message and generate a response (you can use your Python function here)
-        response, links, attachments = _query(message)
+        _, links, attachments = _query(message)
+        output = ""
         if len(links) > 0:
-            response += "\n\nSources:\n"
+            output += "\n\nSources:\n"
         for link in links:
-            response += f"\t{link}\n"
+            output += f"\t{link}\n"
         if len(attachments) > 0:
-            response += "\n\nAttachments:\n"
+            output += "\n\nAttachments:\n"
         for attachment in attachments:
-            response += f"\t{attachment}\n"
+            output += f"\t{attachment}\n"
 
-        send(response)
+        send(output)
+
+    send("[[stop]]")
 
 
 def main():
