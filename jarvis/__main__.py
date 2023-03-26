@@ -6,6 +6,7 @@ import ast
 import sys
 import time
 import eventlet
+import os
 
 from jarvis.tokenizer import get_dataframe
 from jarvis.downloader import download_content, download_gmail
@@ -145,6 +146,20 @@ def _handle_command(message):
         with open(full_path, "w") as f:
             f.write(content)
         send(f"File `{full_path}` saved successfully.")
+    elif "diagram:" in message:
+        # parse the message to get the content
+        lines = message.split("diagram:")[1].split("\n")
+        file_name = "diagram.dot"
+        content = "\n".join(lines[1:]).strip()
+        content = content.replace("```\n", "").replace("\n```", "")
+        full_path = f"{STATIC_FOLDER}/tmp/{file_name}"
+        with open(full_path, "w") as f:
+            f.write(content)
+
+        output_path = f"{STATIC_FOLDER}/tmp/diagram.png"
+        dot_command = ["dot", "-Tpng", full_path, "-o", output_path]
+        os.popen(" ".join(dot_command)).read()
+        send(f"File [diagram.png](file://{output_path}) saved successfully.")
 
 
 @app.route("/")

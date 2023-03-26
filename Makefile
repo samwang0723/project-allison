@@ -7,6 +7,11 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: venv
+# Check if Graphviz is installed
+ifeq (,$(shell which dot))
+    $(error "Graphviz not found. Install Graphviz ...")
+	brew install graphviz
+endif
 venv: $(VENV_NAME)/bin/activate ## Create virtual environment
 
 $(VENV_NAME)/bin/activate: requirements.txt
