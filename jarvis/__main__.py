@@ -186,7 +186,7 @@ def main():
     # Reload CSV once to prevent formatting misalignment
     _reload_csv()
     # Listening input from user
-    socketio.run(app, port=8000, debug=True)
+    socketio.run(app, host="0.0.0.0", port=8000, debug=True)
 
     return ExitStatus.ERROR_CTRL_C.value
 
