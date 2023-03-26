@@ -160,7 +160,7 @@ def handle_message(message):
             _handle_command(message)
         else:
             # Process the message and generate a response (you can use your Python function here)
-            _, links, attachments = _query(message)
+            resp, links, attachments = _query(message)
             output = ""
             if len(links) > 0:
                 output += "\n\nSources:\n"
@@ -171,6 +171,7 @@ def handle_message(message):
             for attachment in attachments:
                 output += f"\t{attachment}\n"
 
+            print(resp)
             send(output)
 
         send("[[stop]]")

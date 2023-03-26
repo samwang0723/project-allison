@@ -17,7 +17,8 @@ ENCODING = "gpt2"  # encoding for text-davinci-003
 MIN_SIMILARITY = 0.78
 SEPARATOR_LEN = len(tiktoken.get_encoding(ENCODING).encode(SEPARATOR))
 HEADER = """\n\n---\n\nPlease perform as a professional Crypto.com domain expert that 
-can answer questions about Crypto.com specific knowledge giving below context.\n\nContext:\n"""
+can answer questions about Crypto.com specific knowledge giving below context. Please
+make sure all the code always wrapped inside ```(language)\n(code)```. \n\nContext:\n"""
 
 
 def _init():
