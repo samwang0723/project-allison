@@ -159,7 +159,7 @@ def _handle_command(message):
         output_path = f"{STATIC_FOLDER}/tmp/diagram.png"
         dot_command = ["dot", "-Tpng", full_path, "-o", output_path]
         os.popen(" ".join(dot_command)).read()
-        send(f"File [diagram.png](file://{output_path}) saved successfully.")
+        send("File [diagram.png](static/tmp/diagram.png) saved successfully.")
 
 
 @app.route("/")
