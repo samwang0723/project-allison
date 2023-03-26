@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Allison - Your Private Assistant</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- code-prettify JavaScript -->
+    <script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js"></script>
+
+    <!-- Prism.js code block -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/prism.css') }}">
+    <script src="{{ url_for('static', filename='js/prism.js') }}"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js"></script>
+
+    <style>
+        @font-face {
+            font-family: 'SauceCodePro';
+            src: url("{{ url_for('static', filename='fonts/scp_italic_mono.ttf') }}") format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'SauceCodePro';
+            src: url("{{ url_for('static', filename='fonts/scp_italic_mono_bold.ttf') }}") format('truetype');
+            font-weight: bold;
+            font-style: normal;
+        }
+
+        pre[class*="language-"] {
+            font-family: 'SauceCodePro';
+            font-size: 14px !important;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            font-family: 'SauceCodePro';
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            width: 100%;
+        }
+
+        #messages {
+            flex: 1;
+            overflow-y: scroll;
+            padding: 10px;
+        }
+
+        .message-row {
+            text-align: left;
+            width: 100%;
+            float: left;
+            display: flex;
+            justify-content: flex-start;
+            justify-content: space-around;
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+
+        .message-row:nth-child(even) {
+            background-color: #e8e9eb;
+        }
+
+        .message-sender {
+            font-weight: bold;
+            margin-right: 10px;
+            text-align: right;
+            width: 10%;
+            flex-direction: row;
+            flex-wrap: nowrap;
+        }
+
+        .message-body {
+            text-align: left;
+            width: 70%;
+            flex-direction: row;
+            flex-wrap: wrap;
+            word-wrap: break-word;
+            margin-left: 10px;
+        }
+
+        .message-tail {
+            width: 10%;
+        }
+
+        .span {
+            font-size: 14px;
+            padding: 10px;
+        }
+
+        .code-toolbar {
+            width: 100%;
+        }
+
+        #message-input {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            /* Align to the bottom */
+            height: auto;
+            min-height: 10%;
+            max-height: 50%;
+            width: 100%;
+            /* Adjust this value to limit the height of the message-input div */
+            padding: 10px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        #chat_form {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            position: relative;
+        }
+
+        .message-input-group {
+            display: flex;
+            width: 100%;
+            position: relative;
+        }
+
+        .form-control {
+            flex: 1;
+            height: 52px;
+            position: relative;
+        }
+
+        #message-textfield {
+            font-family: 'SauceCodePro';
+            resize: none;
+            max-height: 400px;
+            /* 1.5em is the default line height, 4px for padding, 2px for border */
+            overflow-y: auto;
+            width: 100%;
+            padding-right: 80px;
+        }
+
+        #button-submit {
+            font-family: 'SauceCodePro';
+        }
+
+        .input-group-prepend {
+            position: absolute;
+            right: 10px;
+            bottom: 10px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <div class="container">
+        <div id="messages"></div>
+        <div id="message-input">
+            <form id="chat_form">
+                <div class="message-input-group">
+                    <textarea rows="1" id="message-textfield" class="form-control"
+                        placeholder="Ask your questions here..."></textarea>
+                    <div class="input-group-prepend">
+                        <button class="btn btn-dark btn-sm" type="submit" id="button-submit">Send</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let activeDiv = null;
+        let currentMsg = "";
+        let refreshBottom = true;
+
+        $(document).ready(function () {
+            var socket = io.connect('http://' + document.domain + ':' + location.port, {transports: ['websocket']});
+
+            socket.on('connect', function () {
+                console.log('Connected to the server.');
+            });
+
+            socket.on('message', function (data) {
+                // If the message is "[[stop]]", reset the activeDiv
+                if (data === "[[stop]]") {
+                    activeDiv = null;
+                    currentMsg = "";
+                    return;
+                }
+
+                currentMsg += data;
+                if (!activeDiv) {
+                    addMessageRow("allison", data);
+                }
+                formatMessage(currentMsg);
+            });
+
+            $('#chat_form').on('submit', function (e) {
+                e.preventDefault();
+                var message = $('#message-textfield').val();
+                if (message === "") {
+                    return;
+                }
+
+                addMessageRow("user", message);
+                formatMessage(message);
+
+                socket.emit('message', message);
+
+                // reset the input field and cache values
+                $('#message-textfield').val('');
+                activeDiv = null;
+                currentMsg = "";
+            });
+
+            const messageInput = document.getElementById('message-textfield');
+            messageInput.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter' && event.shiftKey) {
+                    event.preventDefault();
+                    const value = this.value;
+                    this.value = value + '\n';
+                }
+            });
+            messageInput.oninput = function () {
+                messageInput.style.height = "52px";
+                messageInput.style.height = Math.min(messageInput.scrollHeight, 400) + "px";
+            };
+
+            const messages = document.getElementById("messages");
+            messages.addEventListener('scroll', function () {
+                // Check if the user just scrolled
+                if (messages.scrollTop + messages.clientHeight >= messages.scrollHeight - 60) {
+                    // User scrolled to the bottom, do something
+                    refreshBottom = true;
+                } else {
+                    // User scrolled, but not to the bottom, do something else
+                    refreshBottom = false;
+                }
+            });
+        });
+
+        function linkify(inputText) {
+            var replacedText, replacePattern1, replacePattern2, replacePattern3;
+
+            //URLs starting with http://, https://, or ftp://
+            replacePattern1 = /(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gim;
+            replacedText = inputText.replace(replacePattern1, '[$1]($1)');
+
+            //URLs starting with "www." (without // before it, or it'd re-link the ones done above).
+            replacePattern2 = /(^|[^\/])(www\.[\S]+(\b|$))/gim;
+            replacedText = replacedText.replace(replacePattern2, '[$1]($2)');
+
+            //Change email addresses to mailto:: links.
+            replacePattern3 = /(([a-zA-Z0-9\-\_\.])+@[a-zA-Z\_]+?(\.[a-zA-Z]{2,6})+)/gim;
+            replacedText = replacedText.replace(replacePattern3, '[$1](mailto:$1)');
+
+            return replacedText;
+        }
+
+        function boldify(inputText) {
+            var replacedText, replacePattern1;
+
+            replacePattern1 = /(Subject:|Summary:|Description:|Sources:|Attachments:)/gim;
+            replacedText = inputText.replace(replacePattern1, '___$1___');
+
+            return replacedText;
+        }
+
+        function addMessageRow(sender, message) {
+            let messageRow = document.createElement("div");
+            messageRow.classList.add("message-row");
+
+            let messageSender = document.createElement("span");
+            messageSender.classList.add("message-sender");
+            messageSender.innerHTML = '<img width="50px" height="50px" src="static/' + sender + '.svg">';
+            messageRow.appendChild(messageSender);
+
+            let messageText = document.createElement("span");
+            messageText.classList.add("message-body");
+            activeDiv = messageText;
+            messageRow.appendChild(messageText);
+
+            let messageTail = document.createElement("span");
+            messageTail.classList.add("message-tail");
+            messageRow.appendChild(messageTail);
+
+            let messages = document.getElementById("messages");
+            messages.appendChild(messageRow);
+        }
+
+        function formatMessage(message) {
+            const lines = message.split('```');
+            let output = '';
+
+            for (let i = 0; i < lines.length; i++) {
+                msg = lines[i];
+                if (i % 2 === 1) {
+                    let code_lines = msg.split('\n');
+                    let language = code_lines.shift().trim(); // Remove the first line, which contains the language identifier.
+                    let code = code_lines.join('\n');
+                    output += '<pre class="prettyprint line-numbers language-markup">' +
+                        '<code class="language-' + language + '">' + code + '</code>' +
+                        '</pre>';
+                } else {
+                    linkified = linkify(msg);
+                    boldified = boldify(linkified);
+                    const md = window.markdownit();
+                    const outputText = md.render(boldified);
+                    output += outputText;
+                }
+            }
+
+            activeDiv.innerHTML = output;
+            // Apply Prism.js syntax highlighting to the newly added code block(s).
+            Prism.highlightAllUnder(activeDiv);
+
+            if (refreshBottom) {
+                let messages = document.getElementById("messages");
+                messages.scrollTop = messages.scrollHeight;
+            }
+        }
+
+    </script>
+
+</body>
+
+</html>

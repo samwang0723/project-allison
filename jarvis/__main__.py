@@ -5,10 +5,8 @@ import numpy as np
 import ast
 import sys
 import time
-import subprocess
-import pyperclip
+import eventlet
 
-from jarvis.voice_input import voice_recognition
 from jarvis.tokenizer import get_dataframe
 from jarvis.downloader import download_content, download_gmail
 from jarvis.chat_completion import (
@@ -19,49 +17,36 @@ from jarvis.chat_completion import (
     ADVANCED_MODEL,
 )
 from jarvis.status import ExitStatus
-from jarvis.constants import MATERIAL_FILE, VOICE_EXE
-from jarvis.dynamic_console import console as _console
+from jarvis.constants import MATERIAL_FILE, TEMPLATE_FOLDER, STATIC_FOLDER
 
 from collections import deque
-from rich.syntax import Syntax
-from rich.table import Table
-from rich.panel import Panel
-from rich.console import group
-from rich import box
+from flask import Flask, render_template
+from flask_socketio import SocketIO, send
 
 USE_GPT_4 = "(gpt-4)"
 
+eventlet.monkey_patch()
+app = Flask(__name__, template_folder=TEMPLATE_FOLDER, static_folder=STATIC_FOLDER)
+socketio = SocketIO(app)
+
 _last_response = deque(maxlen=3)
-_question_history = deque(maxlen=20)
-_read_process = None
+_cached_df = deque(maxlen=1)
 
 
 def _query(
     query: str,
-    df: pd.DataFrame,
     show_prompt: bool = False,
     show_similarity: bool = False,
 ):
-    start_time = time.time()
-    prompt, links, similarities, attachments = construct_prompt(query, df)
-    end_time = time.time()
-    duration = end_time - start_time
-    _console.print(
-        "cosine_similarity - Duration:",
-        duration,
-        "seconds",
-        style="bold red",
-    )
-
-    if show_similarity:
-        for log in similarities:
-            _console.print(log, style="bold green")
-
+    prompt, links, similarities, attachments = construct_prompt(query, _cached_df[0])
     prompt = "\n".join(_last_response) + prompt
     deduped_links = list(set(links))
 
     if show_prompt:
-        _console.print("Prompt:\n\t" + prompt, style="bold green")
+        print("Prompt:\n\t" + prompt)
+
+    if show_similarity:
+        print(f"Similarities:\n\t {similarities}")
 
     if USE_GPT_4 in query or len(prompt) + len(query) > 2048:
         model = ADVANCED_MODEL
@@ -72,7 +57,6 @@ def _query(
 
     output = _openai_call(prompt, query, model=model, max_tokens=max_tokens)
     _last_response.append(output)
-    _question_history.append(query)
 
     return output, deduped_links, attachments
 
@@ -82,41 +66,32 @@ def _openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str
     retries = 0
     while retries < max_retries:
         try:
-            start_time = time.time()
             response = chat_completion(
                 prompt, query, model=model, max_tokens=max_tokens
             )
-            end_time = time.time()
-            duration = end_time - start_time
-            _console.print(
-                "openai.ChatCompletion - Duration:",
-                duration,
-                "seconds",
-                style="bold red",
-            )
-            output = response["choices"][0]["message"]["content"].strip(" \n")
+            # output = response["choices"][0]["message"]["content"].strip(" \n")
+            # create variables to collect the stream of chunks
+            # iterate through the stream of events
+            collected_messages = []
+            for chunk in response:
+                # extract the message
+                chunk_message = chunk["choices"][0]["delta"]
+                collected_messages.append(chunk_message)
+                # print the delay and text
+                if "content" in chunk_message:
+                    send(chunk_message["content"])
 
-            return output
+            full_reply_content = "".join(
+                [m.get("content", "") for m in collected_messages]
+            )
+            return full_reply_content
         except Exception as e:
             retries += 1
-            _console.print(
-                f"[[ Openai connection reset, wait for 5 secs ]]: {e}", style="bold red"
-            )
             # If the connection is reset, wait for 5 seconds and retry
+            print(f"Error: {e}, retrying in 5 seconds")
             time.sleep(5)
 
     return ""
-
-
-def _extract_code(response) -> list:
-    code = []
-    parts = response.split("```")
-    for i, part in enumerate(parts):
-        if i % 2 == 1:
-            code_lines = part.strip().split("\n", 1)
-            code_block = code_lines[1] if len(code_lines) > 1 else code_lines[0]
-            code.append(code_block)
-    return code
 
 
 def _truncate_text(text):
@@ -127,200 +102,93 @@ def _truncate_text(text):
         return text[:max_length]
 
 
-def _should_read(command) -> bool:
-    should_read = False
-    if "Read it out" in command:
-        should_read = True
-    elif "Don't read" in command:
-        should_read = False
-    else:
-        should_read = False
+def _reload_csv():
+    _cached_df.clear()
 
-    cleaned_string = command.replace("Read it out", "").replace("Don't read", "")
-    return cleaned_string.strip(), should_read
-
-
-def _read(messages):
-    _read_process = subprocess.Popen(
-        ["python3", VOICE_EXE, messages], stdout=subprocess.PIPE
-    )
-
-
-def _reload_csv() -> pd.DataFrame:
     df = pd.read_csv(MATERIAL_FILE)
     df["embeddings"] = df["embeddings"].apply(lambda x: np.array(ast.literal_eval(x)))
     # Safely convert the 'attachments' column from string to list
     df["attachments"] = df["attachments"].apply(lambda x: ast.literal_eval(x))
 
-    return df
+    _cached_df.append(df)
 
 
-def _helper_table() -> Table:
-    table = Table(title="")
-    table.add_column("Command", justify="middle", no_wrap=True)
-    table.add_column("Description", justify="middle", no_wrap=True)
-    table.add_row("[cyan bold]exit[/]", "exit the program")
-    table.add_row("[cyan bold]show-prompt[/]", "show prompt for next conversation")
-    table.add_row("[cyan bold]hide-prompt[/]", "hide prompt for next conversation")
-    table.add_row("[cyan bold]clear[/]", "clear conversation history")
-    table.add_row("[cyan bold]history[/]", "show conversation history")
-    table.add_row("[cyan bold]help[/]", "show this help message")
-    table.add_row("[cyan bold]show-similarity[/]", "show similarity")
-    table.add_row("[cyan bold]hide-similarity[/]", "hide similarity")
-    table.add_row("[cyan bold]voice (vv)[/]", "use voice input")
-    table.add_row("[cyan bold]copy (cc)[/]", "copy code to clipboard")
-    table.add_row("[cyan bold]gmail[/]", "get unread gmail")
+def _handle_command(message):
+    if "gmail" in message:
+        gmail_unread = download_gmail()
+        if len(gmail_unread) > 0:
+            send(f"You have ___`{len(gmail_unread)}`___ unread emails")
+            for m in gmail_unread:
+                send("\n\n---\n\n")
+                _openai_call(
+                    _truncate_text(m["body"]),
+                    "[DO NOT create a email response] Condense the email context with subject and summary, not losing critical details.",
+                    model=ADVANCED_MODEL,
+                    max_tokens=2048,
+                )
+                send("\n\nSources:\n\t" + m["link"])
+        else:
+            send("No unread emails.")
+    elif "reset session" in message:
+        _last_response.clear()
+        send("Session being reset successfully.")
+    elif "reload csv" in message:
+        _reload_csv()
+        send("CSV sources reloaded.")
+    elif "save:" in message:
+        # parse the message to get the file name
+        lines = message.split("save:")[1].split("\n")
+        file_name = lines[0].strip()
+        content = "\n".join(lines[1:]).strip()
+        content = content.replace("```\n", "").replace("\n```", "")
+        full_path = f"{STATIC_FOLDER}/tmp/{file_name}"
+        with open(full_path, "w") as f:
+            f.write(content)
+        send(f"File `{full_path}` saved successfully.")
 
-    return table
+
+@app.route("/")
+def index():
+    return render_template("index.html")
 
 
-@group()
-def _print_result(response, links, attachments, read):
-    yield Panel("Answer: ", style="bold green", box=box.SIMPLE)
+@socketio.on("message")
+def handle_message(message):
+    print("Received message: " + message)
+    try:
+        if "command:" in message:
+            _handle_command(message)
+        else:
+            # Process the message and generate a response (you can use your Python function here)
+            _, links, attachments = _query(message)
+            output = ""
+            if len(links) > 0:
+                output += "\n\nSources:\n"
+            for link in links:
+                output += f"\t{link}\n"
+            if len(attachments) > 0:
+                output += "\n\nAttachments:\n"
+            for attachment in attachments:
+                output += f"\t{attachment}\n"
 
-    messages = ""
-    parts = response.split("```")
-    for i, part in enumerate(parts):
-        if i % 2 == 1:  # Syntax-highlighted part
-            yield Panel(
-                Syntax(part, "ruby", theme="monokai", line_numbers=True),
-                box=box.SIMPLE,
-            )
-        else:  # Normal part
-            message = part.strip("\n")
-            messages = " ".join(message)
+            send(output)
 
-            yield Panel(message, box=box.SIMPLE)
-
-    if len(links) > 0:
-        table = Table(title="", box=box.SIMPLE)
-        table.add_column("References", justify="middle", style="cyan", no_wrap=True)
-        for l in links:
-            table.add_row(l)
-
-        yield Panel(table, box=box.SIMPLE)
-
-    if len(attachments) > 0:
-        table = Table(title="", box=box.SIMPLE)
-        table.add_column(
-            "Pdf Links for Reference", justify="middle", style="cyan", no_wrap=True
-        )
-        for a in attachments:
-            table.add_row(a)
-
-        yield Panel(table, box=box.SIMPLE)
-
-    # calling voice to speaking
-    # Execute the voice.py script with a command-line argument using Popen
-    if read:
-        _read(messages)
+        send("[[stop]]")
+    except Exception as e:
+        send(f"Error occurred: {e}")
 
 
 def main():
-    try:
-        pages = download_content(with_gdrive=True, with_confluence=True)
-        df = get_dataframe(pages)
-        df_with_embedding = inject_embeddings(df)
-        df_with_embedding.to_csv(MATERIAL_FILE, index=False)
+    pages = download_content(with_gdrive=True, with_confluence=True)
+    df = get_dataframe(pages)
+    df_with_embedding = inject_embeddings(df)
+    df_with_embedding.to_csv(MATERIAL_FILE, index=False)
+    # Reload CSV once to prevent formatting misalignment
+    _reload_csv()
+    # Listening input from user
+    socketio.run(app, host="0.0.0.0", port=8000, debug=True)
 
-        # Reload CSV once to prevent formatting misalignment
-        final_df = _reload_csv()
-
-        # Listening input from user
-        _prompt_on = False
-        _print_similarity = False
-        _read = False
-        _extracted_code = []
-        while True:
-            # Note: Python 2.x users should use raw_input, the equivalent of 3.x's input
-            _console.print("\n")
-            command = _console.input("[cyan bold] Question / Command: [/]")
-            question, _read = _should_read(command)
-            if question == "exit":
-                exit_status = ExitStatus.ERROR_CTRL_C
-                break
-            elif question == "show-prompt":
-                _prompt_on = True
-                _console.print(
-                    "Prompt is now [red bold]on[/] for next conversation", style="cyan"
-                )
-                continue
-            elif question == "hide-prompt":
-                _prompt_on = False
-                _console.print(
-                    "Prompt is now [red bold]off[/] for next conversation", style="cyan"
-                )
-                continue
-            elif question == "clear":
-                _last_response.clear()
-                _question_history.clear()
-                _console.print("Conversation history cleared", style="cyan")
-                continue
-            elif question == "show-similarity":
-                _print_similarity = True
-                _console.print("Enable similarity", style="cyan")
-                continue
-            elif question == "hide-similarity":
-                _print_similarity = False
-                _console.print("Enable similarity", style="cyan")
-                continue
-            elif question == "history":
-                table = Table(title="")
-                table.add_column(
-                    "History Records", justify="middle", style="cyan", no_wrap=True
-                )
-                for r in _question_history:
-                    table.add_row(r)
-                _console.print(table)
-                continue
-            elif question == "voice" or question == "vv":
-                with _console.status("[bold green] Listening the voice"):
-                    command = voice_recognition()
-                    question, _read = _should_read(command)
-                _console.print(f"[yellow bold] Command Received: [/] {command}")
-            elif question == "copy" or question == "cc":
-                if len(_extracted_code) > 0:
-                    pyperclip.copy("\n\n".join(_extracted_code))
-                    _console.print(f"[yellow bold] Code Copied to Clipboard [/]")
-                else:
-                    _console.print(
-                        f"[yellow bold] No code found in the last response [/]"
-                    )
-                continue
-            elif question == "gmail":
-                gmail_unread = download_gmail()
-                if len(gmail_unread) > 0:
-                    _console.print(
-                        f"[yellow bold] You have {len(gmail_unread)} Unread email threads [/]"
-                    )
-                    for m in gmail_unread:
-                        output = _openai_call(
-                            _truncate_text(m["body"]),
-                            "Help to condense the email context with subject and summary, please not losing critical details",
-                            model=ADVANCED_MODEL,
-                            max_tokens=2048,
-                        )
-                        _console.print(
-                            Panel(_print_result(output, [m["link"]], [], _read))
-                        )
-                else:
-                    _console.print(f"[yellow bold] No unread emails [/]")
-                continue
-            elif question == "help":
-                _console.print(_helper_table())
-                continue
-
-            response, links, attachments = _query(
-                question, final_df, _prompt_on, _print_similarity
-            )
-            _extracted_code = _extract_code(response)
-            _console.print(Panel(_print_result(response, links, attachments, _read)))
-    except KeyboardInterrupt:
-        exit_status = ExitStatus.ERROR_CTRL_C
-        if _read_process is not None:
-            _read_process.kill()
-
-    return exit_status.value
+    return ExitStatus.ERROR_CTRL_C.value
 
 
 if __name__ == "__main__":  # pragma: nocover

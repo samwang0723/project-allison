@@ -23,17 +23,15 @@ build: venv ## Build package
 .PHONY: create_dirs
 create_dirs: ## Create cache directories for config and data
 	mkdir -p $(HOME)/.jarvis/data
-	mkdir -p $(HOME)/.jarvis/voice_records
 	mkdir -p $(HOME)/.jarvis/auth
-	mkdir -p $(HOME)/.jarvis/exe
-	cp jarvis/voice_output.py $(HOME)/.jarvis/exe/voice_output.py
+	mkdir -p $(HOME)/.jarvis/templates
+	mkdir -p $(HOME)/.jarvis/static
+	mkdir -p $(HOME)/.jarvis/static/tmp
+	cp -r jarvis/templates/* $(HOME)/.jarvis/templates
+	cp -r jarvis/static/* $(HOME)/.jarvis/static
 
 .PHONY: install
 install: venv create_dirs ## Install packages under virtual environment and create cache directories
-	if ! brew list portaudio >/dev/null 2>&1; then \
-		brew install portaudio; \
-		sudo ln -s /opt/homebrew/lib/libspeexdsp.dylib /usr/local/lib/libspeexdsp.dylib; \
-	fi
 	$(PYTHON) setup.py install
 
 .PHONY: clean
@@ -42,7 +40,6 @@ clean: ## Clean up cache directories and virtual environment, build
 	find . -name '__pycache__' -exec rm -rf {} +
 	find . -name '*.pyc' -exec rm -rf {} +
 	find . -name '*.pyo' -exec rm -rf {} +
-	rm -rf $(HOME)/.jarvis
 
 .PHONY: run
 run: venv ## Run jarvis

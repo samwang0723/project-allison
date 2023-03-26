@@ -45,6 +45,7 @@ def chat_completion(
             {"role": "system", "content": prompt},
             {"role": "user", "content": query},
         ],
+        stream=True,
     )
 
 
