@@ -322,6 +322,9 @@
                     let code_lines = msg.split('\n');
                     let language = code_lines.shift().trim(); // Remove the first line, which contains the language identifier.
                     let code = code_lines.join('\n');
+                    if (language === '' || language === 'html') {
+                        code = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    }
                     output += '<pre class="prettyprint line-numbers language-markup">' +
                         '<code class="language-' + language + '">' + code + '</code>' +
                         '</pre>';
@@ -334,6 +337,7 @@
                 }
             }
 
+            console.log(output);
             activeDiv.innerHTML = output;
             // Apply Prism.js syntax highlighting to the newly added code block(s).
             Prism.highlightAllUnder(activeDiv);
