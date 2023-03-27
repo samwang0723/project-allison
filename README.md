@@ -1,13 +1,12 @@
 # openai-training
 Project Allison is an assistant with openai, use document embeddings to understand domain knowledge, with streaming response
 
-## Binary Builder
 
 ## Setup .env variables
 
     $ touch .env
 
-### Paste all these three vars into .env
+## Paste all these three vars into .env
 
     CONFLUENCE_API_TOKEN={YOUR_CONFLUENCE_API_TOKEN}
     CONFLUENCE_API_USER={YOUR_CONFLUENCE_USER_NAME}
@@ -29,6 +28,7 @@ Put source into CSV
 
     GOOGLE,{category},{page-id}
 
+## Binary Builder
 ### build (make sure all the data in right place, make install will copy to ~/.jarvis)
 
     make install
