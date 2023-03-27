@@ -14,6 +14,10 @@ class Wiki:
         self.host = os.environ["CONFLUENCE_HOST"]
         self.username = os.environ["CONFLUENCE_API_USER"]
         self.access_token = os.environ["CONFLUENCE_API_TOKEN"]
+        if os.environ["SKIP_SSL_VERIFICATION"] == "1":
+            self.verify_ssl = False
+        else:
+            self.verify_ssl = True
         self.api = None
         self.auth = (self.username, self.access_token)
 
@@ -23,6 +27,7 @@ class Wiki:
             username=self.username,
             password=self.access_token,
             cloud=True,
+            verify_ssl=self.verify_ssl,
         )
 
     def get_attachments(self, page_id):
@@ -30,7 +35,7 @@ class Wiki:
         attachments_url = (
             f"{self.host}/wiki/rest/api/content/{page_id}/child/attachment"
         )
-        response = requests.get(attachments_url, auth=self.auth)
+        response = requests.get(attachments_url, auth=self.auth, verify=self.verify_ssl)
 
         if response.status_code == 200:
             attachments = json.loads(response.text)
