@@ -192,13 +192,18 @@ def _handle_command(message):
 @app.route("/")
 def index():
     session.clear()
-    session["history"] = []
     return render_template("index.html")
 
 
 @socketio.on("message")
 def handle_message(message):
     try:
+        history_records = session.get("history", None)
+        if history_records is None:
+            session["history"] = []
+            session["similarity"] = False
+            session["prompt"] = False
+
         if "command:" in message:
             _handle_command(message)
         else:
