@@ -36,6 +36,7 @@ HELP_TEXT = """
 6. command:reload_csv
 7. command:save:{file_name}
 8. command:diagram:
+9. command:reset_session
 """
 MAX_HISTORY = 3
 

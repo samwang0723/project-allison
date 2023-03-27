@@ -3,6 +3,33 @@ Project Allison is an assistant with openai, use document embeddings to understa
 
 ![Screenshot 2023-03-27 at 5 14 16 PM](https://user-images.githubusercontent.com/538559/227897967-03e771cf-9765-46df-986f-f634231ef9d3.png)
 
+## Commands
+
+    1. command:fetch_gmail
+    2. command:show_similarity
+    3. command:hidden_similarity
+    4. command:show_prompt
+    5. command:hide_prompt
+    6. command:reload_csv
+    7. command:reset_session
+
+### File operations
+
+command:save:{file_name}
+
+    command:save:{file_name}
+    ```
+    {text, code, etc...}
+    ```
+
+command:diagram:
+
+    command:diagram:
+    ```
+    {dot format code}
+    ```
+
+
 ## Setup .env variables
 
     $ touch .env
