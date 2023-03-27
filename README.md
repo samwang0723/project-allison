@@ -1,4 +1,4 @@
-# openai-training
+# Project Allison
 Project Allison is an assistant with openai, use document embeddings to understand domain knowledge, with streaming response
 
 
