@@ -1,0 +1,142 @@
+pre[class*="language-"] {
+    font-family: 'SauceCodePro';
+    font-size: 14px !important;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
+    font-family: 'SauceCodePro';
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    width: 100%;
+}
+
+#messages {
+    flex: 1;
+    overflow-y: scroll;
+    padding: 10px;
+}
+
+.message-row {
+    text-align: left;
+    width: 100%;
+    float: left;
+    display: flex;
+    justify-content: flex-start;
+    justify-content: space-around;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.message-row:nth-child(even) {
+    background-color: #e8e9eb;
+}
+
+.message-sender {
+    font-weight: bold;
+    margin-right: 10px;
+    text-align: right;
+    width: 10%;
+    flex-direction: row;
+    flex-wrap: nowrap;
+}
+
+.message-body {
+    text-align: left;
+    width: 70%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    word-wrap: break-word;
+    margin-left: 10px;
+}
+
+.message-tail {
+    width: 10%;
+}
+
+.span {
+    font-size: 14px;
+    padding: 10px;
+}
+
+.code-toolbar {
+    width: 100%;
+}
+
+#message-input {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    /* Align to the bottom */
+    height: auto;
+    min-height: 10%;
+    max-height: 50%;
+    width: 100%;
+    /* Adjust this value to limit the height of the message-input div */
+    padding: 10px;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+#chat_form {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    position: relative;
+}
+
+.message-input-group {
+    display: flex;
+    width: 100%;
+    position: relative;
+}
+
+.form-control {
+    flex: 1;
+    height: 52px;
+    position: relative;
+}
+
+#message-textfield {
+    font-family: 'SauceCodePro';
+    resize: none;
+    max-height: 400px;
+    /* 1.5em is the default line height, 4px for padding, 2px for border */
+    overflow-y: auto;
+    width: 100%;
+    padding-right: 80px;
+}
+
+#button-submit {
+    font-family: 'SauceCodePro';
+}
+
+code {
+    font-family: 'SauceCodePro';
+}
+
+.input-group-prepend {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+}

@@ -40,7 +40,7 @@ def download_content(with_gdrive: bool = False, with_confluence: bool = False):
             else:
                 link = confluence_wiki.get_link(id, space)
                 if link not in downloaded:
-                    print(f"Downloading {link}, space: {space}, id: {id}")
+                    print(f" > Downloading {link}, space: {space}, id: {id}")
                     page = confluence_wiki.api.get_page_by_id(id, expand="body.storage")
                     attachments = confluence_wiki.get_attachments(id)
                     pages.append(

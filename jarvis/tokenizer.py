@@ -9,6 +9,29 @@ from .constants import MATERIAL_FILE
 TOKENIZER = GPT2TokenizerFast.from_pretrained("gpt2")
 MAX_TOKENS = 2046
 NLP = spacy.load("en_core_web_sm")
+SEPARATOR_DOT = ". "
+SEPARATOR = " "
+
+
+def _map_reduce(title, link, content, sum_tokens, attachments):
+    joined_content = SEPARATOR.join(content)
+    return [
+        (
+            title,
+            link,
+            title + " - " + joined_content,
+            sum_tokens,
+            attachments,
+        )
+    ]
+
+
+def _find_last_period(tokens, max_tokens):
+    last_period_index = -1
+    for i, token in enumerate(tokens[:max_tokens]):
+        if token == ".":
+            last_period_index = i
+    return last_period_index
 
 
 def extract_content(chunk):
@@ -46,34 +69,56 @@ def extract_content(chunk):
         for item in body:
             # Calculate number of tokens
             tl = len(TOKENIZER.tokenize(item))
-            if sum_tokens + tl <= MAX_TOKENS:
-                sum_tokens += tl
-                content.append(item)
-            else:
-                joined_content = " ".join(content)
-                collect += [
-                    (
-                        title,
-                        link,
-                        title + " - " + joined_content,
-                        sum_tokens,
-                        attachments,
-                    )
-                ]
-                content = [item]
-                sum_tokens = tl
 
-        if len(content) > 0:
-            joined_content = " ".join(content)
-            collect += [
-                (
-                    title,
-                    link,
-                    title + " - " + joined_content,
-                    sum_tokens,
-                    attachments,
-                )
-            ]
+            while tl > 0:
+                remaining_space = MAX_TOKENS - sum_tokens
+
+                if tl <= remaining_space:
+                    sum_tokens += tl
+                    content.append(item)
+                    tl = 0
+                else:
+                    if sum_tokens > 0:
+                        collect += _map_reduce(
+                            title, link, content, sum_tokens, attachments
+                        )
+                        content = []
+                        sum_tokens = 0
+
+                    # Split the oversized paragraph and process it in smaller parts
+                    while tl > MAX_TOKENS:
+                        tokens = TOKENIZER.tokenize(item)
+                        last_period_index = _find_last_period(tokens, MAX_TOKENS)
+
+                        if (
+                            last_period_index == -1
+                        ):  # No period found, fallback to cutting at max tokens
+                            last_period_index = MAX_TOKENS - 1
+
+                        item_part = TOKENIZER.convert_tokens_to_string(
+                            tokens[: last_period_index + 1]
+                        )
+                        collect += _map_reduce(
+                            title,
+                            link,
+                            [item_part],
+                            len(TOKENIZER.tokenize(item_part)),
+                            attachments,
+                        )
+
+                        # Update the item to include only the unprocessed part
+                        item = TOKENIZER.convert_tokens_to_string(
+                            tokens[last_period_index + 1 :]
+                        )
+                        tl = len(TOKENIZER.tokenize(item))
+
+                    # Add the remaining part of the item to content
+                    sum_tokens += tl
+                    content.append(item)
+                    tl = 0
+
+        if len(content) > 0 and sum_tokens > 0:
+            collect += _map_reduce(title, link, content, sum_tokens, attachments)
 
     return collect
 
@@ -86,7 +131,11 @@ def parse_html(title, soup) -> list[str]:
         paragraph_tags = soup.find_all("p")
         for p in paragraph_tags:
             body.append(
-                title + ": " + p.get_text().replace("\n", " ").replace("\r", " ")
+                title
+                + ": "
+                + p.get_text(separator=SEPARATOR_DOT)
+                .replace("\n", SEPARATOR)
+                .replace("\r", SEPARATOR)
             )
     else:
         current_content = ""
@@ -105,13 +154,16 @@ def parse_html(title, soup) -> list[str]:
             # Extract the link URLs from the content and append them to the current content
             for sibling in content:
                 try:
-                    if sibling.name == "a":
+                    if sibling.name == "a" and "href" in sibling.attrs:
                         link_url = sibling["href"]
-                        current_content += " " + link_url.strip()
+                        current_content += SEPARATOR + link_url.strip()
                     elif isinstance(sibling, NavigableString):
-                        current_content += " " + sibling.strip()
+                        current_content += SEPARATOR + sibling.strip()
                     else:
-                        current_content += " " + sibling.get_text().strip()
+                        current_content += (
+                            SEPARATOR
+                            + sibling.get_text(separator=SEPARATOR_DOT).strip()
+                        )
                 except Exception as e:
                     print(f"Error: {e}")
                     continue
@@ -120,7 +172,7 @@ def parse_html(title, soup) -> list[str]:
             current_content = (
                 header_text
                 + ": "
-                + current_content.replace("\n", " ").replace("\r", " ")
+                + current_content.replace("\n", SEPARATOR).replace("\r", SEPARATOR)
             )
 
             # Check if the current content contains at least 2 verbs and nouns

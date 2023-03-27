@@ -19,47 +19,57 @@ from jarvis.chat_completion import (
 )
 from jarvis.status import ExitStatus
 from jarvis.constants import MATERIAL_FILE, TEMPLATE_FOLDER, STATIC_FOLDER
+from jarvis.constants import ENV_PATH
 
+from dotenv import load_dotenv
 from collections import deque
-from flask import Flask, render_template
+from flask import Flask, render_template, session
 from flask_socketio import SocketIO, send
 
 USE_GPT_4 = "(gpt-4)"
+HELP_TEXT = """
+1. command:fetch_gmail
+2. command:show_similarity
+3. command:hidden_similarity
+4. command:show_prompt
+5. command:hide_prompt
+6. command:reload_csv
+7. command:save:{file_name}
+8. command:diagram:
+"""
+MAX_HISTORY = 3
 
+load_dotenv(dotenv_path=ENV_PATH)
 eventlet.monkey_patch()
 app = Flask(__name__, template_folder=TEMPLATE_FOLDER, static_folder=STATIC_FOLDER)
+app.secret_key = os.environ["FLASK_SECRET_KEY"]
+app.config["PERMANENT_SESSION_LIFETIME"] = 1800  # 30 minutes in seconds
 socketio = SocketIO(app)
-
-_last_response = deque(maxlen=3)
-_cached_df = deque(maxlen=1)
+_global_df_cache = deque(maxlen=1)
 
 
-def _query(
-    query: str,
-    show_prompt: bool = False,
-    show_similarity: bool = False,
-):
-    prompt, links, similarities, attachments = construct_prompt(query, _cached_df[0])
-    prompt = "\n".join(_last_response) + prompt
-    deduped_links = list(set(links))
+def _query(query: str):
+    history_records = session.get("history", None)
+    if history_records is not None:
+        prompt, links, similarities, attachments = construct_prompt(
+            query, _global_df_cache[0]
+        )
+        prompt = "\n".join(history_records) + prompt
+        deduped_links = list(set(links))
 
-    if show_prompt:
-        print("Prompt:\n\t" + prompt)
+        if USE_GPT_4 in query or len(prompt) + len(query) > 4096:
+            model = ADVANCED_MODEL
+            max_tokens = 2048
+        else:
+            model = COMPLETIONS_MODEL
+            max_tokens = 1024
 
-    if show_similarity:
-        print(f"Similarities:\n\t {similarities}")
+        output = _openai_call(prompt, query, model=model, max_tokens=max_tokens)
+        if len(history_records) >= MAX_HISTORY:
+            history_records.pop(0)
+        history_records.append(output)
 
-    if USE_GPT_4 in query or len(prompt) + len(query) > 2048:
-        model = ADVANCED_MODEL
-        max_tokens = 2048
-    else:
-        model = COMPLETIONS_MODEL
-        max_tokens = 1024
-
-    output = _openai_call(prompt, query, model=model, max_tokens=max_tokens)
-    _last_response.append(output)
-
-    return output, deduped_links, attachments
+    return output, deduped_links, attachments, prompt, similarities
 
 
 def _openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str:
@@ -105,18 +115,18 @@ def _truncate_text(text):
 
 def _reload_csv():
     print("[4] Reloading from CSV sources")
-    _cached_df.clear()
+    _global_df_cache.clear()
 
     df = pd.read_csv(MATERIAL_FILE)
     df["embeddings"] = df["embeddings"].apply(lambda x: np.array(ast.literal_eval(x)))
     # Safely convert the 'attachments' column from string to list
     df["attachments"] = df["attachments"].apply(lambda x: ast.literal_eval(x))
 
-    _cached_df.append(df)
+    _global_df_cache.append(df)
 
 
 def _handle_command(message):
-    if "gmail" in message:
+    if "fetch_gmail" in message:
         gmail_unread = download_gmail()
         if len(gmail_unread) > 0:
             send(f"You have ___`{len(gmail_unread)}`___ unread emails")
@@ -131,10 +141,10 @@ def _handle_command(message):
                 send("\n\nSources:\n\t" + m["link"])
         else:
             send("No unread emails.")
-    elif "reset session" in message:
-        _last_response.clear()
+    elif "reset_session" in message:
+        session["history"].clear()
         send("Session being reset successfully.")
-    elif "reload csv" in message:
+    elif "reload_csv" in message:
         _reload_csv()
         send("CSV sources reloaded.")
     elif "save:" in message:
@@ -161,22 +171,39 @@ def _handle_command(message):
         dot_command = ["dot", "-Tpng", full_path, "-o", output_path]
         os.popen(" ".join(dot_command)).read()
         send("File [diagram.png](static/tmp/diagram.png) saved successfully.")
+    elif "show_similarity" in message:
+        session["similarity"] = True
+        send("Similarity scores will be shown.")
+    elif "hide_similarity" in message:
+        session["similarity"] = False
+        send("Similarity scores will be hidden.")
+    elif "show_prompt" in message:
+        session["prompt"] = True
+        send("Prompt will be shown.")
+    elif "hide_prompt" in message:
+        session["prompt"] = False
+        send("Prompt will be hidden.")
+    elif "help:" in message:
+        send("```" + HELP_TEXT + "```")
+    else:
+        send("Command not found. Please try again.")
 
 
 @app.route("/")
 def index():
+    session.clear()
+    session["history"] = []
     return render_template("index.html")
 
 
 @socketio.on("message")
 def handle_message(message):
-    print("Received message: " + message)
     try:
         if "command:" in message:
             _handle_command(message)
         else:
             # Process the message and generate a response (you can use your Python function here)
-            resp, links, attachments = _query(message)
+            _, links, attachments, prompt, similarities = _query(message)
             output = ""
             if len(links) > 0:
                 output += "\n\nSources:\n"
@@ -186,8 +213,12 @@ def handle_message(message):
                 output += "\n\nAttachments:\n"
             for attachment in attachments:
                 output += f"\t{attachment}\n"
+            if session.get("prompt", False):
+                output += f"\n\nPrompt:\n\t{prompt}"
+            if session.get("similarity", False):
+                similarities = ", ".join(similarities)
+                output += f"\n\nSimilarity:\n\t{similarities}"
 
-            print(resp)
             send(output)
 
         send("[[stop]]")

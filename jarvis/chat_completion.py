@@ -18,7 +18,7 @@ MIN_SIMILARITY = 0.78
 SEPARATOR_LEN = len(tiktoken.get_encoding(ENCODING).encode(SEPARATOR))
 HEADER = """\n\n---\n\nPlease perform as a professional Crypto.com domain expert that 
 can answer questions about Crypto.com specific knowledge giving below context. Please
-make sure all the code always wrapped inside ```(language)\n(code)```. \n\nContext:\n"""
+make sure all the code always wrapped inside ```(language)\n(code)```\n\nContext:\n"""
 
 
 def _init():
@@ -60,7 +60,10 @@ def construct_prompt(question: str, df: pd.DataFrame):
     similarities = []
 
     for _, document_section in most_relevant_document_sections.iterrows():
-        similarities.append(f"{document_section.title} - {document_section.similarity}")
+        similarity = document_section.similarity
+        if similarity >= MIN_SIMILARITY:
+            similarity = f"**{similarity}**"
+        similarities.append(f"{document_section.title} - {similarity}")
         if document_section.similarity < MIN_SIMILARITY:
             continue
 
