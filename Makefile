@@ -9,16 +9,15 @@ help:
 .PHONY: venv
 # Check if Graphviz is installed
 ifeq (,$(shell which dot))
-    $(error "Graphviz not found. Install Graphviz ...")
 	brew install graphviz
 endif
 venv: $(VENV_NAME)/bin/activate ## Create virtual environment
 
 $(VENV_NAME)/bin/activate: requirements.txt
 	test -d $(VENV_NAME) || python3 -m venv $(VENV_NAME)
-	$(PIP) install --upgrade pip
-	$(PIP) install --upgrade wheel
-	$(PIP) install -r requirements.txt
+	$(PIP) install --upgrade pip --trusted-host pypi.org --trusted-host files.pythonhosted.org
+	$(PIP) install --upgrade wheel --trusted-host pypi.org --trusted-host files.pythonhosted.org
+	$(PIP) install -r requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org
 	touch $(VENV_NAME)/bin/activate
 
 .PHONY: build
@@ -32,8 +31,11 @@ create_dirs: ## Create cache directories for config and data
 	mkdir -p $(HOME)/.jarvis/templates
 	mkdir -p $(HOME)/.jarvis/static
 	mkdir -p $(HOME)/.jarvis/static/tmp
+	cp -r jarvis/data/* $(HOME)/.jarvis/data
+	cp -r jarvis/auth/* $(HOME)/.jarvis/auth
 	cp -r jarvis/templates/* $(HOME)/.jarvis/templates
 	cp -r jarvis/static/* $(HOME)/.jarvis/static
+	cp .env $(HOME)/.jarvis/.env
 
 .PHONY: install
 install: venv create_dirs ## Install packages under virtual environment and create cache directories
