@@ -2,7 +2,6 @@ import os
 import spacy
 import re
 import pandas as pd
-import concurrent.futures
 from transformers import GPT2TokenizerFast
 from bs4 import BeautifulSoup, NavigableString
 from .constants import MATERIAL_FILE
@@ -142,15 +141,9 @@ def parse_html(title, soup) -> list[str]:
 
 
 def get_dataframe(pages) -> pd.DataFrame:
-    num_processes = 4  # get the number of available CPUs
-
-    chunk_size = len(pages) // num_processes
-    if chunk_size == 0:
-        chunk_size = 1
-    chunks = [pages[i : i + chunk_size] for i in range(0, len(pages), chunk_size)]
-
-    with concurrent.futures.ProcessPoolExecutor(num_processes) as executor:
-        results = list(executor.map(extract_content, chunks))
+    results = []
+    resp = extract_content(pages)
+    results.append(resp)
 
     collect = [
         result for sublist in results for result in sublist

@@ -104,6 +104,7 @@ def _truncate_text(text):
 
 
 def _reload_csv():
+    print("[4] Reloading from CSV sources")
     _cached_df.clear()
 
     df = pd.read_csv(MATERIAL_FILE)
@@ -195,9 +196,12 @@ def handle_message(message):
 
 
 def main():
+    print("[1] Downloading content from Google Drive and Confluence")
     pages = download_content(with_gdrive=True, with_confluence=True)
     df = get_dataframe(pages)
+    print("[2] Calculate embeddings based on dataframe")
     df_with_embedding = inject_embeddings(df)
+    print("[3] Saving indexed CSV file")
     df_with_embedding.to_csv(MATERIAL_FILE, index=False)
     # Reload CSV once to prevent formatting misalignment
     _reload_csv()
