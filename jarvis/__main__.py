@@ -41,6 +41,7 @@ HELP_TEXT = """
 7. command:reset_session
 """
 MAX_HISTORY = 3
+STOP_SIGN = "[[stop]]"
 
 load_dotenv(dotenv_path=ENV_PATH)
 eventlet.monkey_patch()
@@ -253,7 +254,7 @@ def handle_message(message):
 
             send(output)
 
-        send("[[stop]]")
+        send(STOP_SIGN)
     except Exception as e:
         send(f"Error occurred: {e}")
 
