@@ -58,6 +58,12 @@
                     <textarea rows="1" id="message-textfield" class="form-control"
                         placeholder="Ask your questions here..."></textarea>
                     <div class="input-group-prepend">
+                        <div id="loading" style="display:none;">
+                            <button class="btn btn-dark btn-sm" type="button" disabled>
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                <span class="sr-only">Analyzing</span>
+                            </button>
+                        </div>
                         <button class="btn btn-dark btn-sm" type="submit" id="button-submit">Send</button>
                     </div>
                 </div>

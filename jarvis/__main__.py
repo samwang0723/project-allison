@@ -219,6 +219,7 @@ def handle_upload_image(data):
     send(
         f"Image received [{unique_filename}](/static/tmp/{unique_filename}), unfortunately I can't do anything with it yet :("
     )
+    send("[[stop]]")
 
 
 @socketio.on("message")

@@ -16,6 +16,7 @@ $(document).ready(function() {
         if (data === "[[stop]]") {
             activeDiv = null;
             currentMsg = "";
+            stopLoading();
             return;
         }
 
@@ -27,6 +28,8 @@ $(document).ready(function() {
     });
 
     $("#chat_form").on("submit", function(e) {
+        startLoading();
+
         e.preventDefault();
         var message = $("#message-textfield").val();
         if (message === "") {
@@ -94,20 +97,34 @@ $(document).ready(function() {
 
     $("#btn-prompt").on("click", function() {
         socket.emit("message", "command:prompt");
+        startLoading();
     });
 
     $("#btn-similarity").on("click", function() {
         socket.emit("message", "command:similarity");
+        startLoading();
     });
 
     $("#btn-gmail").on("click", function() {
         socket.emit("message", "command:fetch_gmail");
+        startLoading();
     });
 
     $("#btn-reset").on("click", function() {
         socket.emit("message", "command:reset_session");
+        startLoading();
     });
 });
+
+function startLoading() {
+    document.getElementById("button-submit").style.display = "none";
+    document.getElementById("loading").style.display = "block";
+}
+
+function stopLoading() {
+    document.getElementById("button-submit").style.display = "block";
+    document.getElementById("loading").style.display = "none";
+}
 
 function linkify(inputText) {
     var replacedText, replacePattern1, replacePattern2, replacePattern3;
