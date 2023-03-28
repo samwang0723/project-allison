@@ -45,6 +45,7 @@ body {
     justify-content: space-around;
     padding-top: 10px;
     padding-bottom: 10px;
+    border-radius: 5px;
 }
 
 .message-row:nth-child(even) {
@@ -82,14 +83,24 @@ body {
     width: 100%;
 }
 
+#command-line {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
+}
+
+#command-line button {
+  margin-right: 5px;
+}
+
 #message-input {
     display: flex;
     justify-content: center;
     align-items: flex-end;
     /* Align to the bottom */
     height: auto;
-    min-height: 10%;
-    max-height: 50%;
+    min-height: 60px;
+    max-height: 30%;
     width: 100%;
     /* Adjust this value to limit the height of the message-input div */
     padding: 10px;
@@ -139,4 +150,23 @@ code {
     position: absolute;
     right: 10px;
     bottom: 10px;
+}
+
+.image-upload {
+  width: 32px;
+  height: 32px;
+  background-size: cover;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  margin-right: 10px;
+  background-image: url('/static/upload-to-cloud.svg');
+  background-color: white;
+  display: flex;
+  justify-content: center;
+}
+
+.image-upload-container {
+  display: flex;
+  align-items: center;
 }

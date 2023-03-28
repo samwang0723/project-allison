@@ -7,6 +7,9 @@ import sys
 import time
 import eventlet
 import os
+import base64
+import uuid
+import io
 
 from jarvis.tokenizer import get_dataframe
 from jarvis.downloader import download_content, download_gmail
@@ -25,18 +28,17 @@ from dotenv import load_dotenv
 from collections import deque
 from flask import Flask, render_template, session
 from flask_socketio import SocketIO, send
+from PIL import Image
 
 USE_GPT_4 = "(gpt-4)"
 HELP_TEXT = """
 1. command:fetch_gmail
-2. command:show_similarity
-3. command:hidden_similarity
-4. command:show_prompt
-5. command:hide_prompt
-6. command:reload_csv
-7. command:save:{file_name}
-8. command:diagram:
-9. command:reset_session
+2. command:similarity
+3. command:prompt
+4. command:reload_csv
+5. command:save:{file_name}
+6. command:diagram:
+7. command:reset_session
 """
 MAX_HISTORY = 3
 
@@ -45,6 +47,7 @@ eventlet.monkey_patch()
 app = Flask(__name__, template_folder=TEMPLATE_FOLDER, static_folder=STATIC_FOLDER)
 app.secret_key = os.environ["FLASK_SECRET_KEY"]
 app.config["PERMANENT_SESSION_LIFETIME"] = 1800  # 30 minutes in seconds
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 socketio = SocketIO(app)
 _global_df_cache = deque(maxlen=1)
 
@@ -143,7 +146,8 @@ def _handle_command(message):
         else:
             send("No unread emails.")
     elif "reset_session" in message:
-        session["history"].clear()
+        if session.get("history", []):
+            session["history"].clear()
         send("Session being reset successfully.")
     elif "reload_csv" in message:
         _reload_csv()
@@ -172,18 +176,20 @@ def _handle_command(message):
         dot_command = ["dot", "-Tpng", full_path, "-o", output_path]
         os.popen(" ".join(dot_command)).read()
         send("File [diagram.png](static/tmp/diagram.png) saved successfully.")
-    elif "show_similarity" in message:
-        session["similarity"] = True
-        send("Similarity scores will be shown.")
-    elif "hide_similarity" in message:
-        session["similarity"] = False
-        send("Similarity scores will be hidden.")
-    elif "show_prompt" in message:
-        session["prompt"] = True
-        send("Prompt will be shown.")
-    elif "hide_prompt" in message:
-        session["prompt"] = False
-        send("Prompt will be hidden.")
+    elif "similarity" in message:
+        if session.get("similarity", False) == False:
+            session["similarity"] = True
+            send("Similarity scores will be shown.")
+        else:
+            session["similarity"] = False
+            send("Similarity scores will be hidden.")
+    elif "prompt" in message:
+        if session.get("prompt", False) == False:
+            session["prompt"] = True
+            send("Prompt will be shown.")
+        else:
+            session["prompt"] = False
+            send("Prompt will be hidden.")
     elif "help:" in message:
         send("```" + HELP_TEXT + "```")
     else:
@@ -194,6 +200,25 @@ def _handle_command(message):
 def index():
     session.clear()
     return render_template("index.html")
+
+
+@socketio.on("upload_image")
+def handle_upload_image(data):
+    image_data = data["image"]
+    filename = data["filename"]
+    # Extract the file extension from the filename
+    file_ext = os.path.splitext(filename)[1]
+    # Generate a unique filename to avoid overwriting existing files
+    unique_filename = str(uuid.uuid4()) + file_ext
+    full_path = f"{STATIC_FOLDER}/tmp/{unique_filename}"
+    # Save the image with the original filename
+    with open(full_path, "wb") as f:
+        f.write(base64.b64decode(image_data.split(",")[1]))
+    print(f"Image saved as {full_path}")
+
+    send(
+        f"Image received [{unique_filename}](/static/tmp/{unique_filename}), unfortunately I can't do anything with it yet :("
+    )
 
 
 @socketio.on("message")

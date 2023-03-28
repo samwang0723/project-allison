@@ -72,6 +72,41 @@ $(document).ready(function() {
             refreshBottom = false;
         }
     });
+
+    const fileInput = document.getElementById("file-input");
+    const uploadButton = document.getElementById("upload-button");
+
+    uploadButton.addEventListener("click", function() {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener("change", () => {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function() {
+            const imageData = reader.result;
+            const filename = file.name;
+            socket.emit("upload_image", { image: imageData, filename: filename });
+        };
+
+        reader.readAsDataURL(file);
+    });
+
+    $("#btn-prompt").on("click", function() {
+        socket.emit("message", "command:prompt");
+    });
+
+    $("#btn-similarity").on("click", function() {
+        socket.emit("message", "command:similarity");
+    });
+
+    $("#btn-gmail").on("click", function() {
+        socket.emit("message", "command:fetch_gmail");
+    });
+
+    $("#btn-reset").on("click", function() {
+        socket.emit("message", "command:reset_session");
+    });
 });
 
 function linkify(inputText) {
@@ -161,7 +196,6 @@ function formatMessage(message) {
         }
     }
 
-    console.log(output);
     activeDiv.innerHTML = output;
     // Apply Prism.js syntax highlighting to the newly added code block(s).
     Prism.highlightAllUnder(activeDiv);
