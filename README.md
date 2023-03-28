@@ -1,7 +1,7 @@
 # Project Allison
 Project Allison is an assistant with openai, use document embeddings to understand domain knowledge, with streaming response
 
-![118127994_padded_logo](https://user-images.githubusercontent.com/538559/228126732-c783e457-d6ba-47ea-8481-a05272c61ea8.png)
+<img src="https://user-images.githubusercontent.com/538559/228126732-c783e457-d6ba-47ea-8481-a05272c61ea8.png" alt="Project Allison" width="500"/>
 
 ![Screenshot 2023-03-27 at 5 14 16 PM](https://user-images.githubusercontent.com/538559/227897967-03e771cf-9765-46df-986f-f634231ef9d3.png)
 
