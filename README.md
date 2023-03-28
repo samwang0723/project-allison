@@ -10,12 +10,10 @@ Project Allison is an assistant with openai, use document embeddings to understa
 ## Commands
 
     1. command:fetch_gmail
-    2. command:show_similarity
-    3. command:hidden_similarity
-    4. command:show_prompt
-    5. command:hide_prompt
-    6. command:reload_csv
-    7. command:reset_session
+    2. command:similarity
+    3. command:prompt
+    4. command:reload_csv
+    5. command:reset_session
 
 ### File operations
 
