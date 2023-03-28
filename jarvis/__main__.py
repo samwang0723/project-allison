@@ -225,6 +225,7 @@ def handle_upload_image(data):
 
 @socketio.on("message")
 def handle_message(message):
+    print(f"Received message: {message}")
     try:
         history_records = session.get("history", None)
         if history_records is None:

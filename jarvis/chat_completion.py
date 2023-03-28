@@ -55,6 +55,7 @@ def construct_prompt(question: str, df: pd.DataFrame):
 
     chosen_sections = []
     chosen_sections_links = []
+    deduped_attachments = []
     chosen_sections_attachments = []
     chosen_sections_len = 0
     similarities = []
@@ -78,13 +79,14 @@ def construct_prompt(question: str, df: pd.DataFrame):
         chosen_sections_links.append(document_section.link)
         if len(document_section.attachments) > 0:
             chosen_sections_attachments.extend(document_section.attachments)
+            deduped_attachments = list(set(chosen_sections_attachments))
 
     if len(chosen_sections) == 0:
         prompt = ""
     else:
         prompt = HEADER + "".join(chosen_sections)
 
-    return (prompt, chosen_sections_links, similarities, chosen_sections_attachments)
+    return (prompt, chosen_sections_links, similarities, deduped_attachments)
 
 
 def inject_embeddings(df: pd.DataFrame) -> pd.DataFrame:

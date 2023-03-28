@@ -29,6 +29,8 @@ $(document).ready(function() {
     socket.on("message", function(data) {
         // If the message is "[[stop]]", reset the activeDiv
         if (data === "[[stop]]") {
+            formatMessage(currentMsg, true);
+
             activeDiv = null;
             currentMsg = "";
             stopLoading();
@@ -39,7 +41,7 @@ $(document).ready(function() {
         if (!activeDiv) {
             addMessageRow("allison");
         }
-        formatMessage(currentMsg);
+        formatMessage(currentMsg, false);
     });
 
     $("#chat_form").on("submit", function(e) {
@@ -52,7 +54,7 @@ $(document).ready(function() {
         }
 
         addMessageRow("user");
-        formatMessage(message);
+        formatMessage(message, true);
 
         socket.emit("message", message);
 
@@ -193,7 +195,18 @@ function addMessageRow(sender) {
     messages.appendChild(messageRow);
 }
 
-function formatMessage(message) {
+function extractImageUrls(text) {
+    const matches = text.match(
+        /href=["'][^"']*?\.(png|jpe?g|gif)(?:\?[^"']*)?["']/g,
+    );
+    if (!matches) {
+        return [];
+    }
+    const urls = matches.map((match) => match.slice(6, -1));
+    return urls;
+}
+
+function formatMessage(message, showImg) {
     const lines = message.split("```");
     let output = "";
 
@@ -228,6 +241,26 @@ function formatMessage(message) {
         }
     }
 
+    images = [];
+    if (showImg) {
+        images = extractImageUrls(output);
+        if (images.length > 0) {
+            max = images.length > 10 ? 10 : images.length;
+            imageBlock = "<div class='thumbnails'>";
+            for (let i = 0; i < max; i++) {
+                const image = images[i];
+                imageBlock +=
+                    "<div class='thumbnail' data-src='" +
+                    image +
+                    "' style='background-image:url(" +
+                    image +
+                    ")'></div>";
+            }
+            imageBlock += "</div>";
+            output += imageBlock;
+        }
+    }
+
     activeDiv.innerHTML = output;
     // Apply Prism.js syntax highlighting to the newly added code block(s).
     Prism.highlightAllUnder(activeDiv);
@@ -235,5 +268,16 @@ function formatMessage(message) {
     if (refreshBottom) {
         let messages = document.getElementById("messages");
         messages.scrollTop = messages.scrollHeight;
+    }
+
+    if (showImg && images.length > 0) {
+        var elements = document.getElementsByClassName("thumbnail");
+        var imageClick = function() {
+            const link = this.getAttribute("data-src");
+            window.open(link, "_blank");
+        };
+        for (var i = 0; i < elements.length; i++) {
+            elements[i].addEventListener("click", imageClick, false);
+        }
     }
 }

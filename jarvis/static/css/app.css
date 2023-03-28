@@ -170,3 +170,19 @@ code {
   display: flex;
   align-items: center;
 }
+
+.thumbnails {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.thumbnail {
+    width: 80px;
+    height: 80px;
+    background-size: cover;
+    background-position: center;
+    display: inline-block;
+    margin: 5px;
+    border-radius: 5px;
+}
