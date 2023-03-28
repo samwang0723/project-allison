@@ -11,6 +11,21 @@ $(document).ready(function() {
         console.log("Connected to the server.");
     });
 
+    socket.on("disconnect", () => {
+        console.log("Connection closed");
+        stopLoading();
+    });
+
+    socket.on("connect_error", (error) => {
+        console.log("Connection error:", error);
+        stopLoading();
+    });
+
+    socket.on("connect_timeout", () => {
+        console.log("Connection timeout");
+        stopLoading();
+    });
+
     socket.on("message", function(data) {
         // If the message is "[[stop]]", reset the activeDiv
         if (data === "[[stop]]") {
