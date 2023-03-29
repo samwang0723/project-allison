@@ -11,7 +11,7 @@ import base64
 import uuid
 
 from jarvis.tokenizer import get_dataframe
-from jarvis.downloader import download_content, download_gmail
+from jarvis.downloader import download_content, download_gmail, download_news
 from jarvis.chat_completion import (
     chat_completion,
     inject_embeddings,
@@ -37,6 +37,7 @@ HELP_TEXT = """
 5. command:save:{file_name}
 6. command:diagram:
 7. command:reset_session
+8. command:fetch_news
 """
 MAX_HISTORY = 3
 STOP_SIGN = "[[stop]]"
@@ -144,6 +145,21 @@ def _handle_command(message):
                 send("\n\nSources:\n\t" + m["link"])
         else:
             send("No unread emails.")
+    elif "fetch_news" in message:
+        news = download_news()
+        if len(news) > 0:
+            send(f"You have ___`{len(news)}`___ unread news")
+            for m in news:
+                send("\n\n---\n\n")
+                _openai_call(
+                    _truncate_text(m["body"]),
+                    "Condense the news context with subject and summary, not losing critical details.",
+                    model=ADVANCED_MODEL,
+                    max_tokens=2048,
+                )
+                send("\n\nSources:\n\t" + m["link"])
+        else:
+            send("No unread news.")
     elif "reset_session" in message:
         if session.get("history", []):
             session["history"].clear()
@@ -227,7 +243,6 @@ def handle_upload_image(data):
 
 @socketio.on("message")
 def handle_message(message):
-    print(f"Received message: {message}")
     try:
         history_records = session.get("history", None)
         if history_records is None:
@@ -245,15 +260,17 @@ def handle_message(message):
                 output += "\n\nSources:\n"
             for link in links:
                 output += f"\t{link}\n"
-            if len(attachments) > 0:
-                output += "\n\nAttachments:\n"
-            for attachment in attachments:
-                output += f"\t{attachment}\n"
+
             if session.get("prompt", False):
                 output += f"\n\nPrompt:\n\t{prompt}"
             if session.get("similarity", False):
                 similarities = ", ".join(similarities)
                 output += f"\n\nSimilarity:\n\t{similarities}"
+
+            if len(attachments) > 0:
+                output += "\n\nAttachments:\n"
+            for attachment in attachments:
+                output += f"\t{attachment}\n"
 
             send(output)
 
@@ -263,7 +280,7 @@ def handle_message(message):
 
 
 def main():
-    print("[1] Downloading content from Google Drive and Confluence")
+    print("[1] Downloading content from external sources")
     pages = download_content(with_gdrive=True, with_confluence=True, with_web=True)
     df = get_dataframe(pages)
     print("[2] Calculate embeddings based on dataframe")

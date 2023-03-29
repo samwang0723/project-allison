@@ -4,6 +4,7 @@ import csv
 from jarvis.repository.confluence import Wiki
 from jarvis.repository.googleapis import Drive
 from jarvis.repository.web import Web
+from jarvis.repository.news_api import NewsAPI
 
 from .constants import SOURCE_FILE, MATERIAL_FILE
 
@@ -13,6 +14,11 @@ def download_gmail():
     google_drive.authenticate()
 
     return google_drive.download_gmail()
+
+
+def download_news():
+    news_api = NewsAPI()
+    return news_api.download_file()
 
 
 def download_content(
