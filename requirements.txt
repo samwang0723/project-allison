@@ -52,6 +52,7 @@ matplotlib==3.7.1
 mdurl==0.1.2
 multidict==6.0.4
 murmurhash==1.0.9
+newsapi-python==0.2.7
 numpy==1.24.2
 oauthlib==3.2.2
 openai==0.27.0
