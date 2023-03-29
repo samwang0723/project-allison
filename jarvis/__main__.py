@@ -9,7 +9,6 @@ import eventlet
 import os
 import base64
 import uuid
-import io
 
 from jarvis.tokenizer import get_dataframe
 from jarvis.downloader import download_content, download_gmail
@@ -28,7 +27,6 @@ from dotenv import load_dotenv
 from collections import deque
 from flask import Flask, render_template, session
 from flask_socketio import SocketIO, send
-from PIL import Image
 
 USE_GPT_4 = "(gpt-4)"
 HELP_TEXT = """
@@ -48,7 +46,7 @@ eventlet.monkey_patch()
 app = Flask(__name__, template_folder=TEMPLATE_FOLDER, static_folder=STATIC_FOLDER)
 app.secret_key = os.environ["FLASK_SECRET_KEY"]
 app.config["PERMANENT_SESSION_LIFETIME"] = 1800  # 30 minutes in seconds
-app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 socketio = SocketIO(app)
 _global_df_cache = deque(maxlen=1)
 
@@ -205,22 +203,26 @@ def index():
 
 @socketio.on("upload_image")
 def handle_upload_image(data):
-    image_data = data["image"]
-    filename = data["filename"]
-    # Extract the file extension from the filename
-    file_ext = os.path.splitext(filename)[1]
-    # Generate a unique filename to avoid overwriting existing files
-    unique_filename = str(uuid.uuid4()) + file_ext
-    full_path = f"{STATIC_FOLDER}/tmp/{unique_filename}"
-    # Save the image with the original filename
-    with open(full_path, "wb") as f:
-        f.write(base64.b64decode(image_data.split(",")[1]))
-    print(f"Image saved as {full_path}")
+    try:
+        image_data = data["image"]
+        filename = data["filename"]
+        # Extract the file extension from the filename
+        file_ext = os.path.splitext(filename)[1]
+        # Generate a unique filename to avoid overwriting existing files
+        unique_filename = str(uuid.uuid4()) + file_ext
+        full_path = f"{STATIC_FOLDER}/tmp/{unique_filename}"
+        # Save the image with the original filename
+        with open(full_path, "wb") as f:
+            f.write(base64.b64decode(image_data.split(",")[1]))
+        print(f"Image saved as {full_path}")
 
-    send(
-        f"Image received [{unique_filename}](/static/tmp/{unique_filename}), unfortunately I can't do anything with it yet :("
-    )
-    send("[[stop]]")
+        send(
+            f"Image received [{unique_filename}](/static/tmp/{unique_filename}), unfortunately I can't do anything with it yet :("
+        )
+        send("[[stop]]")
+    except Exception as e:
+        print(f"Error: {e}")
+        send("Error: " + str(e))
 
 
 @socketio.on("message")
