@@ -3,6 +3,7 @@ import csv
 
 from jarvis.repository.confluence import Wiki
 from jarvis.repository.googleapis import Drive
+from jarvis.repository.web import Web
 
 from .constants import SOURCE_FILE, MATERIAL_FILE
 
@@ -14,7 +15,9 @@ def download_gmail():
     return google_drive.download_gmail()
 
 
-def download_content(with_gdrive: bool = False, with_confluence: bool = False):
+def download_content(
+    with_gdrive: bool = True, with_confluence: bool = False, with_web: bool = False
+):
     if with_gdrive:
         google_drive = Drive()
         google_drive.authenticate()
@@ -22,6 +25,9 @@ def download_content(with_gdrive: bool = False, with_confluence: bool = False):
     if with_confluence:
         confluence_wiki = Wiki()
         confluence_wiki.authenticate()
+
+    if with_web:
+        web = Web()
 
     pages = []
     downloaded = __get_previous_downloaded()
@@ -34,9 +40,25 @@ def download_content(with_gdrive: bool = False, with_confluence: bool = False):
 
             if space == "GOOGLE":
                 link = google_drive.get_link(id)
-                if link not in downloaded and google_drive != None:
+                if link not in downloaded and with_gdrive:
+                    print(f" > Downloading {link}, space: {space}, id: {id}")
                     page = google_drive.download_file(id)
                     pages.append({"space": space, "page": page, "link": link})
+            elif space == "WEB":
+                link = id
+                if link not in downloaded and with_web:
+                    print(f" > Downloading {link}, space: {space}, id: {id}")
+                    page = web.download_file(id)
+                    if page is not None:
+                        attachments = web.get_attachments(page)
+                        pages.append(
+                            {
+                                "space": space,
+                                "page": page,
+                                "link": link,
+                                "attachments": attachments,
+                            }
+                        )
             else:
                 link = confluence_wiki.get_link(id, space)
                 if link not in downloaded:

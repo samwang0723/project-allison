@@ -56,6 +56,18 @@ def extract_content(chunk):
             content = match.group(2)
             soup = BeautifulSoup(content, "html.parser")
             body = parse_html(title, soup)
+        elif space == "WEB":
+            page = item["page"]
+            link = item["link"]
+            title_regex = re.compile(r"<title>(.*?)<\/title>")
+            title_match = title_regex.search(page)
+
+            if title_match:
+                title = title_match.group(1)
+            else:
+                title = ""
+            soup = BeautifulSoup(page, "html.parser")
+            body = parse_web(title, soup)
         else:
             page = item["page"]
             title = page["title"]
@@ -121,6 +133,20 @@ def extract_content(chunk):
             collect += _map_reduce(title, link, content, sum_tokens, attachments)
 
     return collect
+
+
+def parse_web(title, soup) -> list[str]:
+    body = []
+    body_tags = soup.find_all(["p"])
+    current_content = ""
+    for p in body_tags:
+        current_content += p.get_text(separator=SEPARATOR_DOT)
+
+    body.append(
+        title + ": " + current_content.replace("\n", SEPARATOR).replace("\r", SEPARATOR)
+    )
+
+    return body
 
 
 def parse_html(title, soup) -> list[str]:

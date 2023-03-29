@@ -264,7 +264,7 @@ def handle_message(message):
 
 def main():
     print("[1] Downloading content from Google Drive and Confluence")
-    pages = download_content(with_gdrive=True, with_confluence=True)
+    pages = download_content(with_gdrive=True, with_confluence=True, with_web=True)
     df = get_dataframe(pages)
     print("[2] Calculate embeddings based on dataframe")
     df_with_embedding = inject_embeddings(df)
