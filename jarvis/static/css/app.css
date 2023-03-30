@@ -181,8 +181,10 @@ code {
     width: 80px;
     height: 80px;
     background-size: cover;
+    background-repeat: no-repeat;
     background-position: center;
     display: inline-block;
     margin: 5px;
     border-radius: 5px;
+    background-color: #f4eabb;
 }
