@@ -241,6 +241,22 @@ def handle_upload_image(data):
         send("Error: " + str(e))
 
 
+@socketio.on("mode")
+def handle_mode(mode):
+    try:
+        if mode == "desktop":
+            send("Switching to desktop mode...")
+            session["mode"] = "desktop"
+        else:
+            send("Switching to mobile mode...")
+            session["mode"] = "mobile"
+    except Exception as e:
+        print(f"Error: {e}")
+        send("Error: " + str(e))
+
+    send(STOP_SIGN)
+
+
 @socketio.on("message")
 def handle_message(message):
     try:
@@ -258,19 +274,22 @@ def handle_message(message):
             output = ""
             if len(links) > 0:
                 output += "\n\nSources:\n"
-            for link in links:
-                output += f"\t{link}\n"
+                for link in links:
+                    output += f"\t{link}\n"
 
             if session.get("prompt", False):
                 output += f"\n\nPrompt:\n\t{prompt}"
+
             if session.get("similarity", False):
                 similarities = ", ".join(similarities)
                 output += f"\n\nSimilarity:\n\t{similarities}"
 
-            if len(attachments) > 0:
+            mode = session.get("mode", None)
+            if len(attachments) > 0 and mode == "desktop":
                 output += "\n\nAttachments:\n"
-            for attachment in attachments:
-                output += f"\t{attachment}\n"
+
+                for attachment in attachments:
+                    output += f"\t{attachment}\n"
 
             send(output)
 

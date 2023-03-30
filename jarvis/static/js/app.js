@@ -1,8 +1,17 @@
 let activeDiv = null;
 let currentMsg = "";
 let refreshBottom = true;
+let mode = "desktop";
 
 $(document).ready(function() {
+    if (
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+            navigator.userAgent,
+        )
+    ) {
+        mode = "mobile";
+    }
+
     var socket = io.connect("http://" + document.domain + ":" + location.port, {
         transports: ["websocket"],
     });
@@ -13,6 +22,8 @@ $(document).ready(function() {
         formatMessage("Server connected. How may I assist you today?", true);
         activeDiv = null;
         currentMsg = "";
+
+        socket.emit("mode", mode);
     });
 
     socket.on("disconnect", () => {
