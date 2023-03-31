@@ -45,6 +45,8 @@ command:diagram:
     SKIP_SSL_VERIFICATION=0
     TOKENIZERS_PARALLELISM=false
     FLASK_SECRET_KEY={YOUR_SECRET}
+    NEWS_API_KEY={YOUR_API_KEY}
+    SKIP_GMAIL_SENDER={EMAILS}
 
 ## Put meaningful Confluence pages IDs into the pulling list
 Make sure you have `source.csv` inside `jarvis/data` folder and listed category, type, page_id
