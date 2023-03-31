@@ -11,7 +11,10 @@ import base64
 import uuid
 
 from jarvis.tokenizer import get_dataframe
-from jarvis.downloader import download_content, download_gmail, download_news
+from jarvis.downloader import (
+    download_content,
+    load_plugins,
+)
 from jarvis.chat_completion import (
     chat_completion,
     inject_embeddings,
@@ -131,7 +134,7 @@ def _reload_csv():
 
 def _handle_command(message):
     if "fetch_gmail" in message:
-        gmail_unread = download_gmail()
+        gmail_unread = download_content("gmail")
         if len(gmail_unread) > 0:
             send(f"You have ___`{len(gmail_unread)}`___ unread emails")
             for m in gmail_unread:
@@ -146,7 +149,7 @@ def _handle_command(message):
         else:
             send("No unread emails.")
     elif "fetch_news" in message:
-        news = download_news()
+        news = download_content("news")
         if len(news) > 0:
             send(f"You have ___`{len(news)}`___ unread news")
             for m in news:
@@ -300,13 +303,18 @@ def handle_message(message):
 
 
 def main():
+    load_plugins()
+
     print("[1] Downloading content from external sources")
-    pages = download_content(with_gdrive=True, with_confluence=True, with_web=True)
+    pages = download_content("source")
     df = get_dataframe(pages)
+
     print("[2] Calculate embeddings based on dataframe")
     df_with_embedding = inject_embeddings(df)
+
     print("[3] Saving indexed CSV file")
     df_with_embedding.to_csv(MATERIAL_FILE, index=False)
+
     # Reload CSV once to prevent formatting misalignment
     _reload_csv()
     # Listening input from user
