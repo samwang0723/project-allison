@@ -54,9 +54,9 @@ def download_content(
                 link = id
                 if link not in downloaded and with_web:
                     print(f" > Downloading {link}, space: {space}, id: {id}")
-                    page = web.download_file(id)
-                    if page is not None:
-                        attachments = web.get_attachments(page)
+                    raw_data = web.download(url=id)
+                    for page in raw_data:
+                        attachments = web.fetch_attachments(page)
                         pages.append(
                             {
                                 "space": space,
