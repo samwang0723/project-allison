@@ -13,27 +13,6 @@ SEPARATOR_DOT = ". "
 SEPARATOR = " "
 
 
-def _map_reduce(title, link, content, sum_tokens, attachments):
-    joined_content = SEPARATOR.join(content)
-    return [
-        (
-            title,
-            link,
-            title + " - " + joined_content,
-            sum_tokens,
-            attachments,
-        )
-    ]
-
-
-def _find_last_period(tokens, max_tokens):
-    last_period_index = -1
-    for i, token in enumerate(tokens[:max_tokens]):
-        if token == ".":
-            last_period_index = i
-    return last_period_index
-
-
 def extract_content(chunk):
     collect = []
     for item in chunk:
@@ -243,3 +222,24 @@ def __merge_old_content(df):
         merged_df = pd.concat([old_df, df])
 
         return merged_df
+
+
+def _map_reduce(title, link, content, sum_tokens, attachments):
+    joined_content = SEPARATOR.join(content)
+    return [
+        (
+            title,
+            link,
+            title + " - " + joined_content,
+            sum_tokens,
+            attachments,
+        )
+    ]
+
+
+def _find_last_period(tokens, max_tokens):
+    last_period_index = -1
+    for i, token in enumerate(tokens[:max_tokens]):
+        if token == ".":
+            last_period_index = i
+    return last_period_index

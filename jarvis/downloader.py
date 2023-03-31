@@ -67,19 +67,13 @@ def download_content(
                             }
                         )
             else:
-                link = confluence_wiki.get_link(id, space)
+                link = confluence_wiki.construct_link(id=id, space=space)
                 if link not in downloaded:
                     print(f" > Downloading {link}, space: {space}, id: {id}")
-                    page = confluence_wiki.api.get_page_by_id(id, expand="body.storage")
-                    attachments = confluence_wiki.get_attachments(id)
-                    pages.append(
-                        {
-                            "space": space,
-                            "page": page,
-                            "link": link,
-                            "attachments": attachments,
-                        }
-                    )
+
+                    data = confluence_wiki.download(id=id, space=space, link=link)
+                    if len(data) > 0:
+                        pages.append(data[0])
 
     return pages
 
