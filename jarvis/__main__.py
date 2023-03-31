@@ -179,7 +179,7 @@ def _handle_command(message):
         full_path = f"{STATIC_FOLDER}/tmp/{file_name}"
         with open(full_path, "w") as f:
             f.write(content)
-        send(f"File `{full_path}` saved successfully.")
+        send(f"File [{file_name}](static/tmp/{file_name}) saved successfully.")
     elif "diagram:" in message:
         # parse the message to get the content
         lines = message.split("diagram:")[1].split("\n")
