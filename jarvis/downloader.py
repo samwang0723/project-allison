@@ -18,7 +18,7 @@ def download_gmail():
 
 def download_news():
     news_api = NewsAPI()
-    return news_api.download_file()
+    return news_api.download()
 
 
 def download_content(

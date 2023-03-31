@@ -260,6 +260,7 @@ def handle_mode(mode):
 @socketio.on("message")
 def handle_message(message):
     try:
+        print(f"Received message: {message}")
         history_records = session.get("history", None)
         if history_records is None:
             session["history"] = []
