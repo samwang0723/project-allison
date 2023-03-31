@@ -1,17 +1,20 @@
 import os
 
-from jarvis.constants import ENV_PATH
+from jarvis.repository.plugin_interface import PluginInterface
+
 from newsapi import NewsApiClient
-from dotenv import load_dotenv
 
 
-class NewsAPI:
+class NewsAPI(PluginInterface):
     def __init__(self):
-        load_dotenv(dotenv_path=ENV_PATH)
+        super().__init__()
         self.api_key = os.environ["NEWS_API_KEY"]
         self.newsapi = NewsApiClient(api_key=self.api_key)
 
-    def download_file(self):
+    def authenticate(self):
+        pass
+
+    def download(self):
         output = []
         try:
             data = self.newsapi.get_top_headlines(
@@ -33,3 +36,9 @@ class NewsAPI:
             print(f"Error: {e}")
 
         return output
+
+    def construct_link(self, **kwargs) -> str:
+        pass
+
+    def fetch_attachments(self, data) -> list:
+        pass

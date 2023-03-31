@@ -3,29 +3,27 @@ from __future__ import print_function
 import os.path
 import base64
 
+from jarvis.repository.plugin_interface import PluginInterface
 from jarvis.constants import STORED_TOKEN, CREDENTIAL_TOKEN
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 
 
-class Drive:
+class Drive(PluginInterface):
     # If modifying these scopes, delete the file token.json.
     SCOPES = [
         "https://www.googleapis.com/auth/drive.readonly",
         "https://www.googleapis.com/auth/gmail.readonly",
     ]
-    SKIP_SENDER = [
-        "notifications@github.com",
-        "sam.wang@crypto.com",
-    ]
 
     def __init__(self):
+        super().__init__()
         self.__creds = None
         self.__service = None
+        self.__skip_gmails = os.getenv("SKIP_GMAIL_SENDER").split(",")
 
     def authenticate(self):
         # The file token.json stores the user's access and refresh tokens, and is
@@ -48,14 +46,37 @@ class Drive:
             with open(STORED_TOKEN, "w") as token:
                 token.write(self.__creds.to_json())
 
-    def download_file(self, fileId, mimeType="text/html") -> str:
-        output = ""
+    def download(self, **kwargs) -> list:
+        output = []
+        if "file_type" in kwargs:
+            file_type = kwargs["file_type"]
+            if file_type == "gmail":
+                output = self._fetch_gmail()
+            else:
+                if "file_id" in kwargs:
+                    file_id = kwargs["file_id"]
+                    output = self._fetch_gdrive(file_id)
+
+        return output
+
+    def construct_link(self, **kwargs) -> str:
+        if "id" in kwargs:
+            id = kwargs["id"]
+            return "https://docs.google.com/document/d/" + id
+
+        return ""
+
+    def fetch_attachments(self, data) -> list:
+        pass
+
+    def _fetch_gdrive(self, file_id) -> list:
+        output = []
         try:
             self.__service = build("drive", "v3", credentials=self.__creds)
 
             # Get the file metadata using the files().get() method with the fields parameter
             file_metadata = (
-                self.__service.files().get(fileId=fileId, fields="id, name").execute()
+                self.__service.files().get(fileId=file_id, fields="id, name").execute()
             )
             # Extract the title from the file metadata
             file_title = file_metadata["name"]
@@ -63,27 +84,17 @@ class Drive:
             # Call the Drive v3 API
             results = (
                 self.__service.files()
-                .export_media(fileId=fileId, mimeType=mimeType)
+                .export_media(fileId=file_id, mimeType="text/html")
                 .execute()
             )
 
-            output = f"[title]{file_title}[/] {results.decode()}"
-        except HttpError as error:
-            # TODO(developer) - Handle errors from drive API.
-            print(f"An error occurred: {error}")
+            output.append(f"[title]{file_title}[/] {results.decode()}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
         return output
 
-    def extract_content(self, email_string):
-        lines = email_string.split(">>")
-        if len(lines) > 1:
-            output = lines[0]
-        else:
-            output = email_string
-
-        return output
-
-    def download_gmail(self):
+    def _fetch_gmail(self):
         # Create a Gmail API client
         service = build("gmail", "v1", credentials=self.__creds)
 
@@ -114,7 +125,7 @@ class Drive:
                         try:
                             data = msg["payload"]["parts"][0]["body"]["data"]
                             byte_code = base64.urlsafe_b64decode(data)
-                            body = self.extract_content(byte_code.decode("utf-8"))
+                            body = self._extract_content(byte_code.decode("utf-8"))
                             id = msg["id"]
                             email_link = f"https://mail.google.com/mail/u/0/#inbox/{id}"
 
@@ -131,11 +142,17 @@ class Drive:
 
         return output
 
-    def get_link(self, id) -> str:
-        return "https://docs.google.com/document/d/" + id
+    def _extract_content(self, email_string):
+        lines = email_string.split(">>")
+        if len(lines) > 1:
+            output = lines[0]
+        else:
+            output = email_string
+
+        return output
 
     def _skip_email_senders(self, sender):
-        for email in self.SKIP_SENDER:
+        for email in self.__skip_gmails:
             if email in sender:
                 return True
         return False
