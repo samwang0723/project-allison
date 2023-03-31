@@ -13,11 +13,12 @@ def download_gmail():
     google_drive = Drive()
     google_drive.authenticate()
 
-    return google_drive.download_gmail()
+    return google_drive.download(file_type="gmail")
 
 
 def download_news():
     news_api = NewsAPI()
+
     return news_api.download()
 
 
@@ -45,11 +46,11 @@ def download_content(
             id = row["page_id"]
 
             if space == "GOOGLE":
-                link = google_drive.get_link(id)
+                link = google_drive.construct_link(id=id)
                 if link not in downloaded and with_gdrive:
                     print(f" > Downloading {link}, space: {space}, id: {id}")
-                    page = google_drive.download_file(id)
-                    pages.append({"space": space, "page": page, "link": link})
+                    page = google_drive.download(file_type="gdrive", file_id=id)
+                    pages.append({"space": space, "page": page[0], "link": link})
             elif space == "WEB":
                 link = id
                 if link not in downloaded and with_web:
