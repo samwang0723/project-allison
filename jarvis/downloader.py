@@ -12,6 +12,7 @@ __plugin_mapping = {
     "Drive": "GOOGLE",
     "Wiki": "OTHERS",
     "NewsAPI": "NEWS",
+    "Finance": "FINANCE",
 }
 
 
@@ -54,6 +55,9 @@ def download_content(download_type: str):
     elif download_type == "news":
         executer = __plugins["NEWS"]
         return executer.download()
+    elif download_type == "finance::picked":
+        executer = __plugins["FINANCE"]
+        return executer.download(type="picked_stocks")
 
 
 def __download_from_source_csv() -> list[str]:

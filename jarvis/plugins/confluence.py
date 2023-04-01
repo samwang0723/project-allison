@@ -11,29 +11,31 @@ class Wiki(PluginInterface):
     def __init__(self):
         super().__init__()
 
-        self.host = os.environ["CONFLUENCE_HOST"]
-        self.username = os.environ["CONFLUENCE_API_USER"]
-        self.access_token = os.environ["CONFLUENCE_API_TOKEN"]
+        self.__host = os.environ["CONFLUENCE_HOST"]
+        self.__username = os.environ["CONFLUENCE_API_USER"]
+        self.__access_token = os.environ["CONFLUENCE_API_TOKEN"]
         if os.environ["SKIP_SSL_VERIFICATION"] == "1":
-            self.verify_ssl = False
+            self.__verify_ssl = False
         else:
-            self.verify_ssl = True
-        self.api = None
-        self.auth = (self.username, self.access_token)
+            self.__verify_ssl = True
+        self.__api = None
+        self.__auth = (self.__username, self.__access_token)
 
     def authenticate(self):
-        self.api = Confluence(
-            url=self.host,
-            username=self.username,
-            password=self.access_token,
+        self.__api = Confluence(
+            url=self.__host,
+            username=self.__username,
+            password=self.__access_token,
             cloud=True,
-            verify_ssl=self.verify_ssl,
+            verify_ssl=self.__verify_ssl,
         )
 
     def fetch_attachments(self, data) -> list:
         supported_types = ["application/pdf", "image/png", "image/jpeg", "image/gif"]
-        attachments_url = f"{self.host}/wiki/rest/api/content/{data}/child/attachment"
-        response = requests.get(attachments_url, auth=self.auth, verify=self.verify_ssl)
+        attachments_url = f"{self.__host}/wiki/rest/api/content/{data}/child/attachment"
+        response = requests.get(
+            attachments_url, auth=self.__auth, verify=self.__verify_ssl
+        )
 
         links = []
         if response.status_code == 200:
@@ -43,7 +45,7 @@ class Wiki(PluginInterface):
             for attachment in attachments["results"]:
                 if attachment["extensions"]["mediaType"] in supported_types:
                     download_url = attachment["_links"]["download"]
-                    links.append(f"{self.host}/wiki{download_url}")
+                    links.append(f"{self.__host}/wiki{download_url}")
 
         return links
 
@@ -52,14 +54,14 @@ class Wiki(PluginInterface):
             id = kwargs["id"]
             space = kwargs["space"]
 
-            return self.host + "/wiki/spaces/" + space + "/pages/" + id
+            return self.__host + "/wiki/spaces/" + space + "/pages/" + id
 
         return ""
 
     def download(self, **kwargs) -> list:
         output = []
         try:
-            page = self.api.get_page_by_id(kwargs["id"], expand="body.storage")
+            page = self.__api.get_page_by_id(kwargs["id"], expand="body.storage")
             attachments = self.fetch_attachments(kwargs["id"])
             output.append(
                 {

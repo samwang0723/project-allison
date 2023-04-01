@@ -8,16 +8,16 @@ from newsapi import NewsApiClient
 class NewsAPI(PluginInterface):
     def __init__(self):
         super().__init__()
-        self.api_key = os.environ["NEWS_API_KEY"]
-        self.newsapi = NewsApiClient(api_key=self.api_key)
+        self.__api_key = os.environ["NEWS_API_KEY"]
+        self.__newsapi = NewsApiClient(api_key=self.__api_key)
 
     def authenticate(self):
         pass
 
-    def download(self):
+    def download(self, **kwargs):
         output = []
         try:
-            data = self.newsapi.get_top_headlines(
+            data = self.__newsapi.get_top_headlines(
                 q="bitcoin", category="business", language="en", country="us"
             )
 

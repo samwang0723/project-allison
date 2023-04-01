@@ -51,11 +51,11 @@ class Drive(PluginInterface):
         if "file_type" in kwargs:
             file_type = kwargs["file_type"]
             if file_type == "gmail":
-                output = self._fetch_gmail()
+                output = self.__fetch_gmail()
             else:
                 if "file_id" in kwargs:
                     file_id = kwargs["file_id"]
-                    output = self._fetch_gdrive(file_id)
+                    output = self.__fetch_gdrive(file_id)
 
         return output
 
@@ -69,7 +69,7 @@ class Drive(PluginInterface):
     def fetch_attachments(self, data) -> list:
         pass
 
-    def _fetch_gdrive(self, file_id) -> list:
+    def __fetch_gdrive(self, file_id) -> list:
         output = []
         try:
             self.__service = build("drive", "v3", credentials=self.__creds)
@@ -94,7 +94,7 @@ class Drive(PluginInterface):
 
         return output
 
-    def _fetch_gmail(self):
+    def __fetch_gmail(self):
         # Create a Gmail API client
         service = build("gmail", "v1", credentials=self.__creds)
 
@@ -121,11 +121,11 @@ class Drive(PluginInterface):
                             title = header["value"]
                         if header["name"] == "From":
                             sender = header["value"]
-                    if not self._skip_email_senders(sender):
+                    if not self.__skip_email_senders(sender):
                         try:
                             data = msg["payload"]["parts"][0]["body"]["data"]
                             byte_code = base64.urlsafe_b64decode(data)
-                            body = self._extract_content(byte_code.decode("utf-8"))
+                            body = self.__extract_content(byte_code.decode("utf-8"))
                             id = msg["id"]
                             email_link = f"https://mail.google.com/mail/u/0/#inbox/{id}"
 
@@ -142,7 +142,7 @@ class Drive(PluginInterface):
 
         return output
 
-    def _extract_content(self, email_string):
+    def __extract_content(self, email_string):
         lines = email_string.split(">>")
         if len(lines) > 1:
             output = lines[0]
@@ -151,7 +151,7 @@ class Drive(PluginInterface):
 
         return output
 
-    def _skip_email_senders(self, sender):
+    def __skip_email_senders(self, sender):
         for email in self.__skip_gmails:
             if email in sender:
                 return True

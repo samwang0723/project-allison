@@ -1,12 +1,14 @@
 import os
 import openai
 import tiktoken
+import time
 import pandas as pd
 
 from .constants import ENV_PATH
 
 from dotenv import load_dotenv
 from openai.embeddings_utils import get_embedding, cosine_similarity
+from flask_socketio import send
 
 COMPLETIONS_MODEL = "gpt-3.5-turbo"
 ADVANCED_MODEL = "gpt-4"
@@ -21,33 +23,37 @@ can answer questions about Crypto.com specific knowledge giving below context. P
 make sure all the code always wrapped inside ```(language)\n(code)```\n\nContext:\n"""
 
 
-def _init():
-    load_dotenv(dotenv_path=ENV_PATH)
-    openai.api_key = os.environ["OPENAI_API_KEY"]
+def openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str:
+    max_retries = 3
+    retries = 0
+    while retries < max_retries:
+        try:
+            response = _chat_completion(
+                prompt, query, model=model, max_tokens=max_tokens
+            )
+            # output = response["choices"][0]["message"]["content"].strip(" \n")
+            # create variables to collect the stream of chunks
+            # iterate through the stream of events
+            collected_messages = []
+            for chunk in response:
+                # extract the message
+                chunk_message = chunk["choices"][0]["delta"]
+                collected_messages.append(chunk_message)
+                # print the delay and text
+                if "content" in chunk_message:
+                    send(chunk_message["content"])
 
+            full_reply_content = "".join(
+                [m.get("content", "") for m in collected_messages]
+            )
+            return full_reply_content
+        except Exception as e:
+            retries += 1
+            # If the connection is reset, wait for 5 seconds and retry
+            print(f"Error: {e}, retrying in 5 seconds")
+            time.sleep(5)
 
-def _params(model: str = COMPLETIONS_MODEL, max_tokens: int = 1024):
-    return {
-        "temperature": 0.0,
-        "max_tokens": max_tokens,
-        "model": model,
-        "top_p": 0.1,
-        "frequency_penalty": 0,
-        "presence_penalty": 0,
-    }
-
-
-def chat_completion(
-    prompt: str, query: str, model: str = COMPLETIONS_MODEL, max_tokens: int = 1024
-):
-    return openai.ChatCompletion.create(
-        **_params(model=model, max_tokens=max_tokens),
-        messages=[
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": query},
-        ],
-        stream=True,
-    )
+    return ""
 
 
 def construct_prompt(question: str, df: pd.DataFrame):
@@ -102,6 +108,19 @@ def inject_embeddings(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _chat_completion(
+    prompt: str, query: str, model: str = COMPLETIONS_MODEL, max_tokens: int = 1024
+):
+    return openai.ChatCompletion.create(
+        **_params(model=model, max_tokens=max_tokens),
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": query},
+        ],
+        stream=True,
+    )
+
+
 def _order_by_similarity(query: str, df: pd.DataFrame):
     query_embedding = get_embedding(query, engine=EMBEDDING_MODEL)
     df["similarity"] = df.embeddings.apply(
@@ -109,6 +128,22 @@ def _order_by_similarity(query: str, df: pd.DataFrame):
     )
     results = df.sort_values("similarity", ascending=False).head(3)
     return results
+
+
+def _init():
+    load_dotenv(dotenv_path=ENV_PATH)
+    openai.api_key = os.environ["OPENAI_API_KEY"]
+
+
+def _params(model: str = COMPLETIONS_MODEL, max_tokens: int = 1024):
+    return {
+        "temperature": 0.0,
+        "max_tokens": max_tokens,
+        "model": model,
+        "top_p": 0.1,
+        "frequency_penalty": 0,
+        "presence_penalty": 0,
+    }
 
 
 _init()
