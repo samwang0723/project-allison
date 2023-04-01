@@ -3,7 +3,7 @@ from __future__ import print_function
 import os.path
 import base64
 
-from jarvis.repository.plugin_interface import PluginInterface
+from jarvis.plugins.plugin_interface import PluginInterface
 from jarvis.constants import STORED_TOKEN, CREDENTIAL_TOKEN
 
 from google.auth.transport.requests import Request

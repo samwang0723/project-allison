@@ -2,7 +2,7 @@ import os
 import csv
 import inspect
 
-from jarvis.repository.plugin_interface import PluginInterface
+from jarvis.plugins.plugin_interface import PluginInterface
 
 from .constants import SOURCE_FILE, MATERIAL_FILE
 

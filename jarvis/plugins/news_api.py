@@ -1,6 +1,6 @@
 import os
 
-from jarvis.repository.plugin_interface import PluginInterface
+from jarvis.plugins.plugin_interface import PluginInterface
 
 from newsapi import NewsApiClient
 
