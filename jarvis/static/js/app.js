@@ -273,9 +273,9 @@ function formatMessage(message, showImg) {
     if (showImg) {
         images = extractImageUrls(output);
         if (images.length > 0) {
-            max = images.length > 10 ? 10 : images.length;
+            //max = images.length > 10 ? 10 : images.length;
             imageBlock = "<div class='thumbnails'>";
-            for (let i = 0; i < max; i++) {
+            for (let i = 0; i < images.length; i++) {
                 const image = images[i];
                 if (image.includes(".pdf")) {
                     imageBlock +=
