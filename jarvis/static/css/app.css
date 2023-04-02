@@ -100,7 +100,7 @@ body {
     /* Align to the bottom */
     height: auto;
     min-height: 60px;
-    max-height: 30%;
+    max-height: 40%;
     width: 100%;
     /* Adjust this value to limit the height of the message-input div */
     padding: 10px;

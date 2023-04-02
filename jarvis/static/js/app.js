@@ -135,8 +135,8 @@ $(document).ready(function() {
         reader.readAsDataURL(file);
     });
 
-    $("#btn-prompt").on("click", function() {
-        socket.emit("message", "command:prompt");
+    $("#btn-picked-stocks").on("click", function() {
+        socket.emit("message", "command:fetch_finance");
         startLoading();
     });
 
