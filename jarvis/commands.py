@@ -84,7 +84,11 @@ def _pretty_print_stocks(stocks):
     date = stocks[0][0]
     new_arr = [inner_arr[1:] for inner_arr in stocks]
     table.add_rows([headers] + new_arr)
-    send(f"update from `{date}`\n```{table.draw()}```")
+    previews = ""
+    for stock in stocks:
+        id = stock[1]
+        previews += f"* https://stock.wearn.com/finance_chart.asp?stockid={id}&timekind=0&timeblock=120&sma1=8&sma2=21&sma3=55&volume=1\n"
+    send(f"update from `{date}`\n```{table.draw()}```\n\n{previews}")
 
 
 def _handle_file_operation_command(message):
