@@ -13,6 +13,7 @@ __plugin_mapping = {
     "Wiki": "OTHERS",
     "NewsAPI": "NEWS",
     "Finance": "FINANCE",
+    "Pdf": "PDF",
 }
 
 
@@ -69,6 +70,7 @@ def __download_from_source_csv() -> list[str]:
         for row in reader:
             space = row["space"]
             id = row["page_id"]
+            header = row["type"]
 
             if space in __plugins:
                 executer = __plugins[space]
@@ -94,6 +96,20 @@ def __download_from_source_csv() -> list[str]:
                                 "page": page,
                                 "link": link,
                                 "attachments": attachments,
+                            }
+                        )
+            elif space == "PDF":
+                link = id
+                if link not in downloaded:
+                    print(f" > Downloading {link}, space: {space}, id: {id}")
+                    raw_data = executer.download(url=id)
+                    for page in raw_data:
+                        pages.append(
+                            {
+                                "space": space,
+                                "page": page,
+                                "link": link,
+                                "title": header,
                             }
                         )
             else:

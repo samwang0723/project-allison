@@ -47,6 +47,12 @@ def extract_content(chunk):
                 title = ""
             soup = BeautifulSoup(page, "html.parser")
             body = parse_web(title, soup)
+        elif space == "PDF":
+            page = item["page"]
+            link = item["link"]
+            title = item["title"]
+            soup = BeautifulSoup(page, "html.parser")
+            body = parse_pdf(title, soup)
         else:
             page = item["page"]
             title = page["title"]
@@ -112,6 +118,20 @@ def extract_content(chunk):
             collect += _map_reduce(title, link, content, sum_tokens, attachments)
 
     return collect
+
+
+def parse_pdf(title, soup) -> list[str]:
+    body = []
+    body_tags = soup.find_all(["span"])
+    current_content = ""
+    for p in body_tags:
+        current_content += p.get_text(separator=SEPARATOR_DOT)
+
+    body.append(
+        title + ": " + current_content.replace("\n", SEPARATOR).replace("\r", SEPARATOR)
+    )
+
+    return body
 
 
 def parse_web(title, soup) -> list[str]:
