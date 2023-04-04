@@ -50,12 +50,12 @@ command:diagram:
     SKIP_GMAIL_SENDER={EMAILS}
 
 ## Put meaningful Confluence pages IDs into the pulling list
-Make sure you have `source.csv` inside `project-allison/data` folder and listed category, type, page_id
+Make sure you have `source.csv` inside `project_allison/data` folder and listed category, type, page_id
 
 ## Setup Google Drive API
 https://developers.google.com/drive/api/quickstart/python
 
-Download `credentials.json` into `project-allison/auth` folder
+Download `credentials.json` into `project_allison/auth` folder
 
 Put source into CSV
 
@@ -67,7 +67,7 @@ Put source into CSV
     make install
 
 ### run
-Please make sure you have all source files and credentials put under `$(HOME)/.project-allison`
+Please make sure you have all source files and credentials put under `$(HOME)/.project_allison`
 
     $ source ./venv/bin/activate
-    $ project-allison --config-path=$HOME/.jarvis
+    $ project-allison --config-path=$HOME/.project_allison
