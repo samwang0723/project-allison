@@ -12,7 +12,7 @@ $(document).ready(function() {
         mode = "mobile";
     }
 
-    var socket = io.connect("https://" + document.domain, {
+    var socket = io.connect(window.location.origin, {
         transports: ["websocket"],
     });
 

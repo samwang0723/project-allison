@@ -31,8 +31,18 @@ class Web(PluginInterface):
 
     def fetch_attachments(self, data) -> list:
         attachments = []
-        regex = r'/href=["\'][^"\']*?\.(png|jpe?g|gif)(?:\?[^"\']*)?["\']/g'
+        regex = r'<img.*?src=[\'"]([^"\']+\.(?:jpg|jpeg|png|gif).*?)[\'"].*?>'
+        skip_keywords = [
+            "line",
+            "facebook",
+            "instagram",
+            "youtube",
+            "rss",
+            "logo",
+            "menu",
+        ]
         for match in re.finditer(regex, data):
-            attachments.append(match.group(1))
+            if not any(keyword in match.group(1).lower() for keyword in skip_keywords):
+                attachments.append(match.group(1))
 
         return attachments
