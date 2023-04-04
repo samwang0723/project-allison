@@ -8,7 +8,6 @@ import eventlet
 import os
 import base64
 import uuid
-from project_allison.command_analyzer import parse_task_prompt
 
 from project_allison.commands import handle_command
 from project_allison.tokenizer import get_dataframe
