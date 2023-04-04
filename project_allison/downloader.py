@@ -2,7 +2,7 @@ import os
 import csv
 import inspect
 
-from jarvis.plugins.plugin_interface import PluginInterface
+from project_allison.plugins.plugin_interface import PluginInterface
 
 from .constants import SOURCE_FILE, MATERIAL_FILE
 
@@ -19,7 +19,7 @@ __plugin_mapping = {
 
 def load_plugins():
     # Assuming the current working directory is the root of your project
-    folder_path = "jarvis/plugins"
+    folder_path = "project_allison/plugins"
     skip_files = ["__init__.py", "plugin_interface.py"]
 
     # Iterate over all the files in the folder

@@ -2,7 +2,7 @@ import os
 import requests
 import re
 
-from jarvis.plugins.plugin_interface import PluginInterface
+from project_allison.plugins.plugin_interface import PluginInterface
 
 
 class Web(PluginInterface):

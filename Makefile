@@ -26,16 +26,16 @@ build: venv ## Build package
 
 .PHONY: create_dirs
 create_dirs: ## Create cache directories for config and data
-	mkdir -p $(HOME)/.jarvis/data
-	mkdir -p $(HOME)/.jarvis/auth
-	mkdir -p $(HOME)/.jarvis/templates
-	mkdir -p $(HOME)/.jarvis/static
-	mkdir -p $(HOME)/.jarvis/static/tmp
-	cp -r jarvis/data/* $(HOME)/.jarvis/data
-	cp -r jarvis/auth/* $(HOME)/.jarvis/auth
-	cp -r jarvis/templates/* $(HOME)/.jarvis/templates
-	cp -r jarvis/static/* $(HOME)/.jarvis/static
-	cp .env $(HOME)/.jarvis/.env
+	mkdir -p $(HOME)/.project_allison/data
+	mkdir -p $(HOME)/.project_allison/auth
+	mkdir -p $(HOME)/.project_allison/templates
+	mkdir -p $(HOME)/.project_allison/static
+	mkdir -p $(HOME)/.project_allison/static/tmp
+	cp -r project_allison/data/* $(HOME)/.project_allison/data
+	cp -r project_allison/auth/* $(HOME)/.project_allison/auth
+	cp -r project_allison/templates/* $(HOME)/.project_allison/templates
+	cp -r project_allison/static/* $(HOME)/.project_allison/static
+	cp .env $(HOME)/.project_allison/.env
 
 .PHONY: install
 install: venv create_dirs ## Install packages under virtual environment and create cache directories
@@ -49,5 +49,5 @@ clean: ## Clean up cache directories and virtual environment, build
 	find . -name '*.pyo' -exec rm -rf {} +
 
 .PHONY: run
-run: venv ## Run jarvis
-	$(PYTHON) jarvis/__main__.py
+run: venv ## Run project_allison
+	$(PYTHON) project_allison/__main__.py

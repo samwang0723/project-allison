@@ -1,4 +1,4 @@
-from jarvis.constants import ENV_PATH
+from project_allison.constants import ENV_PATH
 from dotenv import load_dotenv
 from abc import ABC, abstractmethod
 

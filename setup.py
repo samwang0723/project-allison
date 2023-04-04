@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-import jarvis
+import project_allison
 
 
 def long_description():
@@ -14,21 +14,21 @@ def get_requirements():
 
 
 setup(
-    name="jarvis",
-    version=jarvis.__version__,
+    name="project-allison",
+    version=project_allison.__version__,
     packages=find_packages(),
     install_requires=get_requirements(),
     entry_points={
         "console_scripts": [
-            "jarvis=jarvis.__main__:main",
+            "project-allison=project_allison.__main__:main",
         ],
     },
-    author=jarvis.__author__,
-    author_email=jarvis.__email__,
-    description=jarvis.__description__,
+    author=project_allison.__author__,
+    author_email=project_allison.__email__,
+    description=project_allison.__description__,
     long_description=long_description(),
     long_description_content_type="text/markdown",
-    url="https://github.com/samwang0723/openai-training",
+    url="https://github.com/samwang0723/project-allison",
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3 :: Only",

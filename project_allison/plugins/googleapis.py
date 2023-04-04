@@ -3,8 +3,8 @@ from __future__ import print_function
 import os.path
 import base64
 
-from jarvis.plugins.plugin_interface import PluginInterface
-from jarvis.constants import STORED_TOKEN, CREDENTIAL_TOKEN
+from project_allison.plugins.plugin_interface import PluginInterface
+from project_allison.constants import STORED_TOKEN, CREDENTIAL_TOKEN
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials

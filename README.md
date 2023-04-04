@@ -10,10 +10,11 @@ Project Allison is an assistant with openai, use document embeddings to understa
 ## Commands
 
     1. command:fetch_gmail
-    2. command:similarity
-    3. command:prompt
-    4. command:reload_csv
-    5. command:reset_session
+    2. command:fetch_news
+    3. command:featch_finance
+    4. command:similarity
+    5. command:prompt
+    6. command:reset_session
 
 ### File operations
 
@@ -49,24 +50,24 @@ command:diagram:
     SKIP_GMAIL_SENDER={EMAILS}
 
 ## Put meaningful Confluence pages IDs into the pulling list
-Make sure you have `source.csv` inside `jarvis/data` folder and listed category, type, page_id
+Make sure you have `source.csv` inside `project-allison/data` folder and listed category, type, page_id
 
 ## Setup Google Drive API
 https://developers.google.com/drive/api/quickstart/python
 
-Download `credentials.json` into `jarvis/auth` folder
+Download `credentials.json` into `project-allison/auth` folder
 
 Put source into CSV
 
     GOOGLE,{category},{page-id}
 
 ## Binary Builder
-### build (make sure all the data in right place, make install will copy to ~/.jarvis)
+### build (make sure all the data in right place, make install will copy to ~/.project-allison)
 
     make install
 
 ### run
-Please make sure you have all source files and credentials put under `$(HOME)/.jarvis`
+Please make sure you have all source files and credentials put under `$(HOME)/.project-allison`
 
     $ source ./venv/bin/activate
-    $ jarvis --config-path=$HOME/.jarvis
+    $ project-allison --config-path=$HOME/.jarvis

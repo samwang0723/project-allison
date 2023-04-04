@@ -1,7 +1,7 @@
 import urllib.request
 import io
 
-from jarvis.plugins.plugin_interface import PluginInterface
+from project_allison.plugins.plugin_interface import PluginInterface
 
 import urllib.request
 from pdfminer.converter import HTMLConverter

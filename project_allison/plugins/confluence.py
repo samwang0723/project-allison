@@ -2,7 +2,7 @@ import os
 import requests
 import json
 
-from jarvis.plugins.plugin_interface import PluginInterface
+from project_allison.plugins.plugin_interface import PluginInterface
 
 from atlassian import Confluence
 

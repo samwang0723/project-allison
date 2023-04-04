@@ -1,4 +1,4 @@
-"""The main entry point. Invoke as `jarvis' or `python -m jarvis'.
+"""The main entry point. Invoke as `project_allison' or `python -m jarvis'.
 """
 import pandas as pd
 import numpy as np
@@ -9,22 +9,22 @@ import os
 import base64
 import uuid
 
-from jarvis.commands import handle_command
-from jarvis.tokenizer import get_dataframe
-from jarvis.downloader import (
+from project_allison.commands import handle_command
+from project_allison.tokenizer import get_dataframe
+from project_allison.downloader import (
     download_content,
     load_plugins,
 )
-from jarvis.chat_completion import (
+from project_allison.chat_completion import (
     openai_call,
     inject_embeddings,
     construct_prompt,
     COMPLETIONS_MODEL,
     ADVANCED_MODEL,
 )
-from jarvis.status import ExitStatus
-from jarvis.constants import MATERIAL_FILE, TEMPLATE_FOLDER, STATIC_FOLDER
-from jarvis.constants import ENV_PATH
+from project_allison.status import ExitStatus
+from project_allison.constants import MATERIAL_FILE, TEMPLATE_FOLDER, STATIC_FOLDER
+from project_allison.constants import ENV_PATH
 
 from dotenv import load_dotenv
 from collections import deque

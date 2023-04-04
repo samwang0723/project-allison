@@ -2,7 +2,7 @@ import os
 import argparse
 
 # Create the argument parser
-parser = argparse.ArgumentParser(description="Jarvis command-line tool")
+parser = argparse.ArgumentParser(description="Project-Allison commandline tools")
 
 # Define the --config-path argument
 parser.add_argument(

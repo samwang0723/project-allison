@@ -1,8 +1,8 @@
 import os
 
-from jarvis.constants import STATIC_FOLDER
-from jarvis.downloader import download_content
-from jarvis.chat_completion import openai_call, ADVANCED_MODEL
+from project_allison.constants import STATIC_FOLDER
+from project_allison.downloader import download_content
+from project_allison.chat_completion import openai_call, ADVANCED_MODEL
 
 from flask import session
 from flask_socketio import send
