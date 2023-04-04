@@ -8,6 +8,7 @@ import eventlet
 import os
 import base64
 import uuid
+from project_allison.command_analyzer import parse_task_prompt
 
 from project_allison.commands import handle_command
 from project_allison.tokenizer import get_dataframe
@@ -64,7 +65,7 @@ def _query(query: str):
         output = openai_call(prompt, query, model=model, max_tokens=max_tokens)
         if len(history_records) >= MAX_HISTORY:
             history_records.pop(0)
-        history_records.append(output)
+        history_records.append(f"Question: {query}. Answer: {output}. ")
 
     return output, deduped_links, attachments, prompt, similarities
 

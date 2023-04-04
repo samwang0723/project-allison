@@ -18,10 +18,15 @@ SEPARATOR = "\n* "
 ENCODING = "gpt2"  # encoding for text-davinci-003
 MIN_SIMILARITY = 0.75
 SEPARATOR_LEN = len(tiktoken.get_encoding(ENCODING).encode(SEPARATOR))
-HEADER = """\n\n---\n\nPlease perform as a professional Crypto.com domain expert that 
-can answer questions about Crypto.com specific knowledge giving below context. Please
-make sure all the code always wrapped inside ```(language)\n(code)```\n\n
-if response has chinese, please always convert traditional chinese.\n\nContext:\n"""
+HEADER = """
+#1 The AI assistant can parse user input and answer questions based on context given. 
+You need to make sure all the code MUST wrapped inside 
+```(code-language)
+(code)
+```
+if response has simplified chinese, you MUST convert to traditional chinese.
+Context:
+"""
 
 
 def openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str:
