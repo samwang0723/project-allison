@@ -49,25 +49,26 @@ _global_df_cache = deque(maxlen=1)
 def _query(query: str):
     history_records = session.get("history", None)
     if history_records is not None:
-        prompt, links, similarities, attachments = construct_prompt(
-            query, _global_df_cache[0]
-        )
-        prompt = "\n".join(history_records) + prompt
-        deduped_links = list(set(links))
-
-        if USE_GPT_4 in query or len(prompt) + len(query) > 4096:
-            model = ADVANCED_MODEL
-            max_tokens = 2048
-        else:
-            model = COMPLETIONS_MODEL
-            max_tokens = 1024
-
+        deduped_links, attachments, prompt, similarities = [], [], "", []
         # identify task commands
         if query.startswith("/"):
             task_data = parse_task_prompt(query[1:], "\n".join(history_records))
             handle_tasks(task_data)
-        else:
-            # Regular conversational call
+            output = "Task completed"
+        else:  # Regular conversational call
+            prompt, links, similarities, attachments = construct_prompt(
+                query, _global_df_cache[0]
+            )
+            prompt = "\n".join(history_records) + prompt
+            deduped_links = list(set(links))
+
+            if USE_GPT_4 in query or len(prompt) + len(query) > 4096:
+                model = ADVANCED_MODEL
+                max_tokens = 2048
+            else:
+                model = COMPLETIONS_MODEL
+                max_tokens = 1024
+
             output = openai_call(prompt, query, model=model, max_tokens=max_tokens)
             if len(history_records) >= MAX_HISTORY:
                 history_records.pop(0)
