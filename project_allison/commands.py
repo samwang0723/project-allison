@@ -1,28 +1,16 @@
-import os
-
 from project_allison.constants import STATIC_FOLDER
 from project_allison.downloader import download_content
-from project_allison.chat_completion import openai_call, ADVANCED_MODEL
+from project_allison.chat_completion import (
+    openai_call,
+    COMPLETIONS_MODEL,
+    ADVANCED_MODEL,
+)
 
 from flask import session
 from flask_socketio import send
 from texttable import Texttable
 
 _system_commands = ["similarity", "prompt", "reset_session"]
-_file_operation_commands = ["save:", "diagram:"]
-_business_logic_commands = ["fetch_gmail", "fetch_news", "fetch_finance"]
-_available_tasks = [
-    "pull-my-stock-portfolio",
-    "pull-stock-selections",
-    "fetch-gmail-updates",
-    "fetch-news",
-    "text-summary",
-    "text-to-file",
-    "text-to-diagram",
-    "image-to-text",
-    "query-knowledgebase",
-    "console-exeution",
-]
 
 
 def handle_tasks(json_data):
@@ -38,8 +26,10 @@ def handle_tasks(json_data):
                 _pretty_print_stocks(picked_stocks)
             else:
                 send("You don't have picked stocks currently")
+            break
         elif task_name == "pull-stock-selections":
             send("Fetching stock selections is constructing.")
+            break
         elif task_name == "fetch-gmail-updates":
             gmail_unread = download_content("gmail")
             if len(gmail_unread) > 0:
@@ -48,13 +38,14 @@ def handle_tasks(json_data):
                     send("\n\n---\n\n")
                     openai_call(
                         _truncate_text(m["body"]),
-                        "[DO NOT CREATE RESPONSE] Condense email context with subject and summary, don't lose date,item,person,numbers, etc.",
+                        "[DO NOT CREATE RESPONSE] Condense email context with subject and summary, KEEP critical details like time,person,action,amount.",
                         model=ADVANCED_MODEL,
                         max_tokens=2048,
                     )
-                    send("\n\nSources:\n\t" + m["link"])
+                    send("\n\nSources:\n\t" + m["link"] + "\n")
             else:
                 send("No unread emails.")
+            break
         elif task_name == "fetch-news":
             news = download_content("news")
             if len(news) > 0:
@@ -63,66 +54,38 @@ def handle_tasks(json_data):
                     send("\n\n---\n\n")
                     openai_call(
                         _truncate_text(m["body"]),
-                        "Condense the news context with subject and summary, not losing critical details.",
-                        model=ADVANCED_MODEL,
-                        max_tokens=2048,
+                        "Condense the news context with subject and summary, KEEP critical details like time,person,action,amount.",
+                        model=COMPLETIONS_MODEL,
+                        max_tokens=1024,
                     )
-                    send("\n\nSources:\n\t" + m["link"])
+                    send("\n\nSources:\n\t" + m["link"] + "\n")
             else:
                 send("No unread news.")
+            break
+        elif task_name == "text-summary":
+            openai_call(
+                item["args"]["text"],
+                "Condense the text, KEEP critical details like time,person,action,amount.",
+                model=ADVANCED_MODEL,
+                max_tokens=2048,
+            )
+        elif task_name == "text-to-file":
+            arg = item["args"]
+            file_name = arg["file"]
+            content = arg["text"]
+            full_path = f"{STATIC_FOLDER}/tmp/{file_name}"
+            with open(full_path, "w") as f:
+                f.write(content)
+            send(f"File [{file_name}](static/tmp/{file_name}) saved successfully.")
         else:
             send(f"Task `{task_name}` not found. Please try again.")
 
 
-def handle_command(action):
+def handle_system_command(action):
     if action in _system_commands:
         _handle_system_command(action)
-    elif action in _file_operation_commands:
-        _handle_file_operation_command(action)
-    elif action in _business_logic_commands:
-        _handle_business_logic_command(action)
     else:
         send("Command not found. Please try again.")
-
-
-def _handle_business_logic_command(message):
-    if "fetch_gmail" in message:
-        gmail_unread = download_content("gmail")
-        if len(gmail_unread) > 0:
-            send(f"You have ___`{len(gmail_unread)}`___ unread emails")
-            for m in gmail_unread:
-                send("\n\n---\n\n")
-                openai_call(
-                    _truncate_text(m["body"]),
-                    "[DO NOT CREATE RESPONSE] Condense email context with subject and summary, don't lose date,item,person,numbers, etc.",
-                    model=ADVANCED_MODEL,
-                    max_tokens=2048,
-                )
-                send("\n\nSources:\n\t" + m["link"])
-        else:
-            send("No unread emails.")
-    elif "fetch_news" in message:
-        news = download_content("news")
-        if len(news) > 0:
-            send(f"Found ___`{len(news)}`___ news updates")
-            for m in news:
-                send("\n\n---\n\n")
-                openai_call(
-                    _truncate_text(m["body"]),
-                    "Condense the news context with subject and summary, not losing critical details.",
-                    model=ADVANCED_MODEL,
-                    max_tokens=2048,
-                )
-                send("\n\nSources:\n\t" + m["link"])
-        else:
-            send("No unread news.")
-    elif "fetch_finance" in message:
-        picked_stocks = download_content("finance::picked")
-        if len(picked_stocks) > 0:
-            send(f"Found ___`{len(picked_stocks)}`___ picked stocks\n\n")
-            _pretty_print_stocks(picked_stocks)
-        else:
-            send("You don't have picked stocks currently")
 
 
 def _pretty_print_stocks(stocks):
@@ -149,33 +112,6 @@ def _pretty_print_stocks(stocks):
         id = stock[1]
         previews += f"* https://stock.wearn.com/finance_chart.asp?stockid={id}&timekind=0&timeblock=120&sma1=8&sma2=21&sma3=55&volume=1\n"
     send(f"update from `{date}`\n```{table.draw()}```\n\n{previews}")
-
-
-def _handle_file_operation_command(message):
-    if "save:" in message:
-        # parse the message to get the file name
-        lines = message.split("save:")[1].split("\n")
-        file_name = lines[0].strip()
-        content = "\n".join(lines[1:]).strip()
-        content = content.replace("```\n", "").replace("\n```", "")
-        full_path = f"{STATIC_FOLDER}/tmp/{file_name}"
-        with open(full_path, "w") as f:
-            f.write(content)
-        send(f"File [{file_name}](static/tmp/{file_name}) saved successfully.")
-    elif "diagram:" in message:
-        # parse the message to get the content
-        lines = message.split("diagram:")[1].split("\n")
-        file_name = "diagram.dot"
-        content = "\n".join(lines[1:]).strip()
-        content = content.replace("```\n", "").replace("\n```", "")
-        full_path = f"{STATIC_FOLDER}/tmp/{file_name}"
-        with open(full_path, "w") as f:
-            f.write(content)
-
-        output_path = f"{STATIC_FOLDER}/tmp/diagram.png"
-        dot_command = ["dot", "-Tpng", full_path, "-o", output_path]
-        os.popen(" ".join(dot_command)).read()
-        send("File [diagram.png](static/tmp/diagram.png) saved successfully.")
 
 
 def _handle_system_command(message):

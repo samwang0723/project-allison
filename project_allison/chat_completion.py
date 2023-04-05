@@ -27,10 +27,20 @@ CONVERSATION_PROMPT = """
 if response has simplified chinese, you MUST convert to traditional chinese.
 Context: [ {{context}} ]
 """
-TASK_PREPARATION_PROMPT = """
-#1 Task Planning Stage: The AI assistant can parse user input to several tasks: [{"task": task, "id", task_id, "dep": dependency_task_id, "args": {"text": text or <GENERATED>-dep_id, "image": image_url or <GENERATED>-dep_id,"audio": audio_url or <GENERATED>-dep_id,"file": file_path or <GENERATED>-dep_id}}]. The special tag "<GENERATED>-dep_id" refer to the one generated text/image/audio/file in the dependency task (Please consider whether the dependency task generates resources of this type.) and "dep_id" must be in "dep" list. The "dep" field denotes the ids of the previous prerequisite tasks which generate a new resource that the current task relies on. The "args" field must in ["text", "image", "audio", "file"], nothing else. The task MUST selected from the following options: "pull-my-stock-portfolio", "pull-stock-selections", "fetch-gmail-updates", "fetch-news", "text-summary", "text-to-file", "text-to-diagram", "image-to-text", "query-knowledgebase", "console-exeution". If no task options is suitable, make the task as "none" and stop. There may be multiple tasks of the same type. Think step by step about all the tasks needed to resolve the user's request. Parse out as few tasks as possible while ensuring that the user request can be resolved. Pay attention to the dependencies and order among tasks. If the user input can't be parsed, you need reply empty JSON [].
-"""
+TASK_PREPARATION_PROMPT = """#1 Task Planning Stage: The AI assistant can parse user input to several tasks: [{"task": task, "id", task_id, "dep": dependency_task_id, "args": {"text": text or <GENERATED>-dep_id, "image": image_url or <GENERATED>-dep_id,"audio": audio_url or <GENERATED>-dep_id,"file": file_path or <GENERATED>-dep_id}}]. The special tag "<GENERATED>-dep_id" refer to the one generated text/image/audio/file in the dependency task (Please consider whether the dependency task generates resources of this type.) and "dep_id" must be in "dep" list. The "dep" field denotes the ids of the previous prerequisite tasks which generate a new resource that the current task relies on. The "args" field must in ["text", "image", "audio", "file"], nothing else. The task MUST selected from the following options: {{available_tasks}}. If no task options is suitable, make the task as "none" and stop. There may be multiple tasks of the same type. Think step by step about all the tasks needed to resolve the user's request. Parse out as few tasks as possible while ensuring that the user request can be resolved. Pay attention to the dependencies and order among tasks. If the user input can't be parsed, you need reply empty JSON []. If "text-to-file" tasks found, recognize text inside ``` as text content and KEEP NEW LINE, NOT parsing it."""
 TASK_CHAT_PROMPT = "The chat log [ {{context}} ] may contain the resources I mentioned. Now I input { {{input}} }, please parse out as many as the required tasks to solve my request ONLY in a JSON format without any description."
+AVAILABLE_TASKS = [
+    "pull-my-stock-portfolio",
+    "pull-stock-selections",
+    "fetch-gmail-updates",
+    "fetch-news",
+    "text-summary",
+    "text-to-file",
+    "text-to-diagram",
+    "image-to-text",
+    "query-knowledgebase",
+    "console-exeution",
+]
 
 
 def openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str:
@@ -129,11 +139,17 @@ def parse_task_prompt(query, history):
             "context": history,
         },
     )
+    preparation_prompt = _replace_slot(
+        TASK_PREPARATION_PROMPT,
+        {
+            "available_tasks": ",".join(AVAILABLE_TASKS),
+        },
+    )
 
     resp = openai.ChatCompletion.create(
         **_task_params(model=COMPLETIONS_MODEL, max_tokens=1024),
         messages=[
-            {"role": "system", "content": TASK_PREPARATION_PROMPT},
+            {"role": "system", "content": preparation_prompt},
             {"role": "user", "content": polished_input},
         ],
         stream=False,
@@ -170,7 +186,7 @@ def _replace_slot(text, entries):
         if not isinstance(value, str):
             value = str(value)
         text = text.replace(
-            "{{" + key + "}}", value.replace('"', "'").replace("\n", "")
+            "{{" + key + "}}", value.replace('"', "'")  # .replace("\n", "")
         )
     return text
 

@@ -9,7 +9,7 @@ import os
 import base64
 import uuid
 
-from project_allison.commands import handle_command, handle_tasks
+from project_allison.commands import handle_system_command, handle_tasks
 from project_allison.tokenizer import get_dataframe
 from project_allison.downloader import (
     download_content,
@@ -147,7 +147,7 @@ def handle_message(message):
 
         if "command:" in message:
             action = message.split("command:")[1].strip()
-            handle_command(action)
+            handle_system_command(action)
         else:
             # Process the message and generate a response (you can use your Python function here)
             _, links, attachments, prompt, similarities = _query(message)
