@@ -2,9 +2,10 @@ import os
 import openai
 import tiktoken
 import time
+import json
 import pandas as pd
 
-from .constants import ENV_PATH
+from project_allison.constants import ENV_PATH
 
 from dotenv import load_dotenv
 from openai.embeddings_utils import get_embedding, cosine_similarity
@@ -18,15 +19,28 @@ SEPARATOR = "\n* "
 ENCODING = "gpt2"  # encoding for text-davinci-003
 MIN_SIMILARITY = 0.75
 SEPARATOR_LEN = len(tiktoken.get_encoding(ENCODING).encode(SEPARATOR))
-HEADER = """
-#1 The AI assistant can parse user input and answer questions based on context given. 
-You need to make sure all the code MUST wrapped inside 
+CONVERSATION_PROMPT = """
+#1 The AI assistant can parse user input and answer questions based on context given. You need to make sure all the code MUST wrapped inside 
 ```(code-language)
 (code)
 ```
 if response has simplified chinese, you MUST convert to traditional chinese.
-Context:
+Context: [ {{context}} ]
 """
+TASK_PREPARATION_PROMPT = """#1 Task Planning Stage: The AI assistant can parse user input to several tasks: [{"task": task, "id", task_id, "dep": dependency_task_id, "args": {"text": text or <GENERATED>-dep_id, "image": image_url or <GENERATED>-dep_id,"audio": audio_url or <GENERATED>-dep_id,"file": file_path or <GENERATED>-dep_id}}]. The special tag "<GENERATED>-dep_id" refer to the one generated text/image/audio/file in the dependency task (Please consider whether the dependency task generates resources of this type.) and "dep_id" must be in "dep" list. The "dep" field denotes the ids of the previous prerequisite tasks which generate a new resource that the current task relies on. The "args" field must in ["text", "image", "audio", "file"], nothing else. The task MUST selected from the following options: {{available_tasks}}. If no task options is suitable, make the task as "none" and stop. There may be multiple tasks of the same type. Think step by step about all the tasks needed to resolve the user's request. Parse out as few tasks as possible while ensuring that the user request can be resolved. Pay attention to the dependencies and order among tasks. If the user input can't be parsed, you need reply empty JSON []. If "text-to-file" tasks found, recognize text inside ``` as text content and KEEP NEW LINE, NOT parsing it."""
+TASK_CHAT_PROMPT = "The chat log [ {{context}} ] may contain the resources I mentioned. Now I input { {{input}} }, please parse out as many as the required tasks to solve my request ONLY in a JSON format without any description."
+AVAILABLE_TASKS = [
+    "pull-my-stock-portfolio",
+    "pull-stock-selections",
+    "fetch-gmail-updates",
+    "fetch-news",
+    "text-summary",
+    "text-to-file",
+    "text-to-diagram",
+    "image-to-text",
+    "query-knowledgebase",
+    "console-exeution",
+]
 
 
 def openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str:
@@ -96,7 +110,10 @@ def construct_prompt(question: str, df: pd.DataFrame):
     if len(chosen_sections) == 0:
         prompt = ""
     else:
-        prompt = HEADER + "".join(chosen_sections)
+        prompt = _replace_slot(
+            CONVERSATION_PROMPT,
+            {"context": "".join(chosen_sections)},
+        )
 
     return (prompt, chosen_sections_links, similarities, deduped_attachments)
 
@@ -114,11 +131,39 @@ def inject_embeddings(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def parse_task_prompt(query, history):
+    polished_input = _replace_slot(
+        TASK_CHAT_PROMPT,
+        {
+            "input": query,
+            "context": history,
+        },
+    )
+    preparation_prompt = _replace_slot(
+        TASK_PREPARATION_PROMPT,
+        {
+            "available_tasks": ",".join(AVAILABLE_TASKS),
+        },
+    )
+
+    resp = openai.ChatCompletion.create(
+        **_task_params(model=COMPLETIONS_MODEL, max_tokens=1024),
+        messages=[
+            {"role": "system", "content": preparation_prompt},
+            {"role": "user", "content": polished_input},
+        ],
+        stream=False,
+    )
+
+    json_data = json.loads(resp["choices"][0]["message"]["content"])
+    return json_data
+
+
 def _chat_completion(
     prompt: str, query: str, model: str = COMPLETIONS_MODEL, max_tokens: int = 1024
 ):
     return openai.ChatCompletion.create(
-        **_params(model=model, max_tokens=max_tokens),
+        **_conversation_params(model=model, max_tokens=max_tokens),
         messages=[
             {"role": "system", "content": prompt},
             {"role": "user", "content": query},
@@ -136,12 +181,25 @@ def _order_by_similarity(query: str, df: pd.DataFrame):
     return results
 
 
-def _init():
-    load_dotenv(dotenv_path=ENV_PATH)
-    openai.api_key = os.environ["OPENAI_API_KEY"]
+def _replace_slot(text, entries):
+    for key, value in entries.items():
+        if not isinstance(value, str):
+            value = str(value)
+        text = text.replace(
+            "{{" + key + "}}", value.replace('"', "'")  # .replace("\n", "")
+        )
+    return text
 
 
-def _params(model: str = COMPLETIONS_MODEL, max_tokens: int = 1024):
+def _task_params(model: str = COMPLETIONS_MODEL, max_tokens: int = 1024):
+    return {
+        "temperature": 0,
+        "max_tokens": max_tokens,
+        "model": model,
+    }
+
+
+def _conversation_params(model: str = COMPLETIONS_MODEL, max_tokens: int = 1024):
     return {
         "temperature": 0.0,
         "max_tokens": max_tokens,
@@ -150,6 +208,11 @@ def _params(model: str = COMPLETIONS_MODEL, max_tokens: int = 1024):
         "frequency_penalty": 0,
         "presence_penalty": 0,
     }
+
+
+def _init():
+    load_dotenv(dotenv_path=ENV_PATH)
+    openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
 _init()

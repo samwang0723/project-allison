@@ -35,11 +35,11 @@ class Finance(PluginInterface):
         response = requests.get(url)
 
         if response.status_code == 200:
-            return self.__parse_picked_stocks(response.json())
+            return self.__parse_stock_data(response.json())
         else:
             raise Exception(f"Error: {response.status_code}, {response.text}")
 
-    def __parse_picked_stocks(self, data) -> list:
+    def __parse_stock_data(self, data) -> list:
         entries = data["entries"]
         result = []
         for entry in entries:

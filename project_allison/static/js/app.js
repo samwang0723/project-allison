@@ -135,8 +135,8 @@ $(document).ready(function() {
         reader.readAsDataURL(file);
     });
 
-    $("#btn-picked-stocks").on("click", function() {
-        socket.emit("message", "command:fetch_finance");
+    $("#btn-prompt").on("click", function() {
+        socket.emit("message", "command:prompt");
         startLoading();
     });
 
@@ -145,18 +145,8 @@ $(document).ready(function() {
         startLoading();
     });
 
-    $("#btn-gmail").on("click", function() {
-        socket.emit("message", "command:fetch_gmail");
-        startLoading();
-    });
-
     $("#btn-reset").on("click", function() {
         socket.emit("message", "command:reset_session");
-        startLoading();
-    });
-
-    $("#btn-news").on("click", function() {
-        socket.emit("message", "command:fetch_news");
         startLoading();
     });
 });

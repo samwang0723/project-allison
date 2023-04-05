@@ -9,7 +9,7 @@ import os
 import base64
 import uuid
 
-from project_allison.commands import handle_command
+from project_allison.commands import handle_system_command, handle_tasks
 from project_allison.tokenizer import get_dataframe
 from project_allison.downloader import (
     download_content,
@@ -21,6 +21,7 @@ from project_allison.chat_completion import (
     construct_prompt,
     COMPLETIONS_MODEL,
     ADVANCED_MODEL,
+    parse_task_prompt,
 )
 from project_allison.status import ExitStatus
 from project_allison.constants import MATERIAL_FILE, TEMPLATE_FOLDER, STATIC_FOLDER
@@ -48,23 +49,30 @@ _global_df_cache = deque(maxlen=1)
 def _query(query: str):
     history_records = session.get("history", None)
     if history_records is not None:
-        prompt, links, similarities, attachments = construct_prompt(
-            query, _global_df_cache[0]
-        )
-        prompt = "\n".join(history_records) + prompt
-        deduped_links = list(set(links))
+        deduped_links, attachments, prompt, similarities = [], [], "", []
+        # identify task commands
+        if query.startswith("/"):
+            task_data = parse_task_prompt(query[1:], "\n".join(history_records))
+            handle_tasks(task_data)
+            output = "Task completed"
+        else:  # Regular conversational call
+            prompt, links, similarities, attachments = construct_prompt(
+                query, _global_df_cache[0]
+            )
+            prompt = "\n".join(history_records) + prompt
+            deduped_links = list(set(links))
 
-        if USE_GPT_4 in query or len(prompt) + len(query) > 4096:
-            model = ADVANCED_MODEL
-            max_tokens = 2048
-        else:
-            model = COMPLETIONS_MODEL
-            max_tokens = 1024
+            if USE_GPT_4 in query or len(prompt) + len(query) > 4096:
+                model = ADVANCED_MODEL
+                max_tokens = 2048
+            else:
+                model = COMPLETIONS_MODEL
+                max_tokens = 1024
 
-        output = openai_call(prompt, query, model=model, max_tokens=max_tokens)
-        if len(history_records) >= MAX_HISTORY:
-            history_records.pop(0)
-        history_records.append(f"Question: {query}. Answer: {output}. ")
+            output = openai_call(prompt, query, model=model, max_tokens=max_tokens)
+            if len(history_records) >= MAX_HISTORY:
+                history_records.pop(0)
+            history_records.append(f"Question: {query}. Answer: {output}. ")
 
     return output, deduped_links, attachments, prompt, similarities
 
@@ -139,7 +147,7 @@ def handle_message(message):
 
         if "command:" in message:
             action = message.split("command:")[1].strip()
-            handle_command(action)
+            handle_system_command(action)
         else:
             # Process the message and generate a response (you can use your Python function here)
             _, links, attachments, prompt, similarities = _query(message)
