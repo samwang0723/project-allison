@@ -9,7 +9,7 @@ import os
 import base64
 import uuid
 
-from project_allison.commands import handle_command
+from project_allison.commands import handle_command, handle_tasks
 from project_allison.tokenizer import get_dataframe
 from project_allison.downloader import (
     download_content,
@@ -21,6 +21,7 @@ from project_allison.chat_completion import (
     construct_prompt,
     COMPLETIONS_MODEL,
     ADVANCED_MODEL,
+    parse_task_prompt,
 )
 from project_allison.status import ExitStatus
 from project_allison.constants import MATERIAL_FILE, TEMPLATE_FOLDER, STATIC_FOLDER
@@ -61,10 +62,16 @@ def _query(query: str):
             model = COMPLETIONS_MODEL
             max_tokens = 1024
 
-        output = openai_call(prompt, query, model=model, max_tokens=max_tokens)
-        if len(history_records) >= MAX_HISTORY:
-            history_records.pop(0)
-        history_records.append(f"Question: {query}. Answer: {output}. ")
+        # identify task commands
+        if query.startswith("/"):
+            task_data = parse_task_prompt(query[1:], "\n".join(history_records))
+            handle_tasks(task_data)
+        else:
+            # Regular conversational call
+            output = openai_call(prompt, query, model=model, max_tokens=max_tokens)
+            if len(history_records) >= MAX_HISTORY:
+                history_records.pop(0)
+            history_records.append(f"Question: {query}. Answer: {output}. ")
 
     return output, deduped_links, attachments, prompt, similarities
 

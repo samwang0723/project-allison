@@ -11,6 +11,67 @@ from texttable import Texttable
 _system_commands = ["similarity", "prompt", "reset_session"]
 _file_operation_commands = ["save:", "diagram:"]
 _business_logic_commands = ["fetch_gmail", "fetch_news", "fetch_finance"]
+_available_tasks = [
+    "pull-my-stock-portfolio",
+    "pull-stock-selections",
+    "fetch-gmail-updates",
+    "fetch-news",
+    "text-summary",
+    "text-to-file",
+    "text-to-diagram",
+    "image-to-text",
+    "query-knowledgebase",
+    "console-exeution",
+]
+
+
+def handle_tasks(json_data):
+    for item in json_data:
+        print(
+            f"Task: {item['task']}, ID: {item['id']}, Dep: {item['dep']}, Args: {item['args']}"
+        )
+        task_name = item["task"]
+        if task_name == "pull-my-stock-portfolio":
+            picked_stocks = download_content("finance::picked")
+            if len(picked_stocks) > 0:
+                send(f"Found ___`{len(picked_stocks)}`___ picked stocks\n\n")
+                _pretty_print_stocks(picked_stocks)
+            else:
+                send("You don't have picked stocks currently")
+        elif task_name == "pull-stock-selections":
+            send("Fetching stock selections is constructing.")
+        elif task_name == "fetch-gmail-updates":
+            gmail_unread = download_content("gmail")
+            if len(gmail_unread) > 0:
+                send(f"You have ___`{len(gmail_unread)}`___ unread emails")
+                for m in gmail_unread:
+                    send("\n\n---\n\n")
+                    openai_call(
+                        _truncate_text(m["body"]),
+                        "[DO NOT CREATE RESPONSE] Condense email context with subject and summary, don't lose date,item,person,numbers, etc.",
+                        model=ADVANCED_MODEL,
+                        max_tokens=2048,
+                    )
+                    send("\n\nSources:\n\t" + m["link"])
+            else:
+                send("No unread emails.")
+        elif task_name == "fetch-news":
+            news = download_content("news")
+            if len(news) > 0:
+                send(f"Found ___`{len(news)}`___ news updates")
+                for m in news:
+                    send("\n\n---\n\n")
+                    openai_call(
+                        _truncate_text(m["body"]),
+                        "Condense the news context with subject and summary, not losing critical details.",
+                        model=ADVANCED_MODEL,
+                        max_tokens=2048,
+                    )
+                    send("\n\nSources:\n\t" + m["link"])
+            else:
+                send("No unread news.")
+        else:
+            send(f"Task `{task_name}` not found. Please try again.")
 
 
 def handle_command(action):
@@ -58,7 +119,6 @@ def _handle_business_logic_command(message):
     elif "fetch_finance" in message:
         picked_stocks = download_content("finance::picked")
         if len(picked_stocks) > 0:
-            print(picked_stocks)
             send(f"Found ___`{len(picked_stocks)}`___ picked stocks\n\n")
             _pretty_print_stocks(picked_stocks)
         else:
