@@ -197,7 +197,9 @@ function addMessageRow(sender) {
     let messageSender = document.createElement("span");
     messageSender.classList.add("message-sender");
     messageSender.innerHTML =
-        '<img width="50px" height="50px" src="static/' + sender + '.svg">';
+        '<img width="50px" height="50px" src="https://cdn.jsdelivr.net/gh/samwang0723/project-allison@main/project_allison/static/' +
+        sender +
+        '.svg">';
     messageRow.appendChild(messageSender);
 
     let messageText = document.createElement("span");
@@ -272,7 +274,7 @@ function formatMessage(message, showImg) {
                     imageBlock +=
                         "<div class='thumbnail' data-src='" +
                         image +
-                        "' style='background-image:url(static/pdf.png)'></div>";
+                        "' style='background-image:url(https://cdn.jsdelivr.net/gh/samwang0723/project-allison@main/project_allison/static/pdf.png)'></div>";
                 } else {
                     imageBlock +=
                         "<div class='thumbnail' data-src='" +
