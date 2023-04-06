@@ -194,7 +194,7 @@ def parse_html(title, soup) -> list[str]:
                             + sibling.get_text(separator=SEPARATOR_DOT).strip()
                         )
                 except Exception as e:
-                    print(f"Error: {e}")
+                    print(f"[parse_html] Error: {e}")
                     continue
             # Concatenate the content and add it to the result array
             # for better mapping
@@ -270,7 +270,10 @@ def _extract_table(table, key) -> str:
     for row in table.find_all("tr"):
         row_text = ""
         for i, cell in enumerate(row.find_all("td")):
-            row_text += headers[i] + ": " + cell.text + ", "
+            if i < len(headers):
+                row_text += headers[i] + ": " + cell.text + ", "
+            else:
+                row_text += cell.text + ", "
         if row_text:
             text += row_text[:-2] + "| "
 

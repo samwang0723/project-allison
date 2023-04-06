@@ -115,7 +115,7 @@ def handle_upload_image(data):
         )
         send("[[stop]]")
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"[handle_upload_image] Error: {e}")
         send("Error: " + str(e))
 
 
@@ -129,7 +129,7 @@ def handle_mode(mode):
             send("Switching to mobile mode...")
             session["mode"] = "mobile"
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"[handle_mode] Error: {e}")
         send("Error: " + str(e))
 
     send(STOP_SIGN)
@@ -173,7 +173,7 @@ def handle_message(message):
 
             send(output)
     except Exception as e:
-        send(f"Error occurred: {e}")
+        send(f"[handle_message] Error: {e}")
 
     send(STOP_SIGN)
 
