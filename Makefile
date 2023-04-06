@@ -1,6 +1,24 @@
 VENV_NAME = venv
 PYTHON = $(VENV_NAME)/bin/python
 PIP = $(VENV_NAME)/bin/pip
+VERSION_FILE = VERSION
+CHANGELOG_FILE = CHANGELOG.md
+GIT_COMMIT = $(shell git rev-parse HEAD)
+CURRENT_VERSION = $(shell cat $(VERSION_FILE))
+MAJOR = $(shell echo $(CURRENT_VERSION) | cut -d. -f1)
+MINOR = $(shell echo $(CURRENT_VERSION) | cut -d. -f2)
+PATCH = $(shell echo $(CURRENT_VERSION) | cut -d. -f3)
+NEXT_PATCH = $(shell echo $$(($(PATCH) + 1)))
+NEXT_MINOR = $(shell echo $$(($(MINOR) + 1)))
+NEW_VERSION ?= $(shell if [ $(NEXT_PATCH) -eq 10 ]; then \
+	if [ $(NEXT_MINOR) -eq 10 ]; then \
+		echo "$$(($(MAJOR) + 1)).0.0"; \
+	else \
+		echo "$(MAJOR).$(NEXT_MINOR).0"; \
+	fi; \
+else \
+	echo "$(MAJOR).$(MINOR).$(NEXT_PATCH)"; \
+fi)
 
 .PHONY: help
 help:
@@ -51,3 +69,23 @@ clean: ## Clean up cache directories and virtual environment, build
 .PHONY: run
 run: venv ## Run project_allison
 	$(PYTHON) project_allison/__main__.py
+
+# Targets
+.PHONY: changelog tag release
+
+changelog:
+	@echo "Generating changelog for version $(NEW_VERSION)..."
+	git-chglog -o CHANGELOG.md
+
+tag:
+	@echo "Tagging version $(NEW_VERSION)..."
+	@echo "$(NEW_VERSION)" > $(VERSION_FILE)
+	@git add $(VERSION_FILE) $(CHANGELOG_FILE)
+	@git commit -m "Release version $(NEW_VERSION)"
+	@git tag -a "v$(NEW_VERSION)" -m "Version $(NEW_VERSION)"
+	@echo "Version $(NEW_VERSION) tagged."
+
+release: changelog tag
+	@echo "Releasing version $(NEW_VERSION)..."
+	@git push origin "v$(NEW_VERSION)"
+	@echo "Version $(NEW_VERSION) released."

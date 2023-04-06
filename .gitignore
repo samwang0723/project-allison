@@ -1,5 +1,6 @@
 .DS_Store
 .env
+.chglog/
 source.csv
 material.csv
 credentials.json
