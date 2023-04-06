@@ -227,7 +227,6 @@ function extractImageUrls(text) {
 }
 
 function formatMessage(message, showImg) {
-    console.log(message);
     const lines = message.split("```");
     let output = "";
 

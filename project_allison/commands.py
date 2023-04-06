@@ -4,7 +4,6 @@ from project_allison.constants import STATIC_FOLDER
 from project_allison.downloader import download_content
 from project_allison.chat_completion import (
     openai_call,
-    COMPLETIONS_MODEL,
     ADVANCED_MODEL,
 )
 
@@ -13,6 +12,12 @@ from flask_socketio import send
 from texttable import Texttable
 
 _system_commands = ["similarity", "prompt", "reset_session"]
+
+TEXT_SUMMARY_PROMPT = (
+    "Condense the text, KEEP critical details like time,person,action,amount."
+)
+EMAIL_SUMMARY_PROMPT = "[DO NOT CREATE RESPONSE] Condense email context with subject and summary, KEEP critical details like time,person,action,amount."
+NEWS_SUMMARY_PROMPT = "Condense the news context with subject and summary, KEEP critical details like time,person,action,amount."
 
 
 def handle_tasks(json_data):
@@ -57,22 +62,8 @@ def handle_system_command(action):
             if session.get("history", []):
                 session["history"].clear()
             send("Session being reset successfully.")
-        elif "similarity" in action:
-            if session.get("similarity", False) == False:
-                session["similarity"] = True
-                send("Similarity scores will be shown.")
-            else:
-                session["similarity"] = False
-                send("Similarity scores will be hidden.")
-        elif "prompt" in action:
-            if session.get("prompt", False) == False:
-                session["prompt"] = True
-                send("Prompt will be shown.")
-            else:
-                session["prompt"] = False
-                send("Prompt will be hidden.")
-    else:
-        send("Command not found. Please try again.")
+        else:
+            _toggle_debugging(action)
 
 
 def _validate(args, task_name, expected_keys):
@@ -82,6 +73,25 @@ def _validate(args, task_name, expected_keys):
             return False
 
     return True
+
+
+def _toggle_debugging(action):
+    if "similarity" in action:
+        if session.get("similarity", False) == False:
+            session["similarity"] = True
+            send("Similarity scores will be shown.")
+        else:
+            session["similarity"] = False
+            send("Similarity scores will be hidden.")
+    elif "prompt" in action:
+        if session.get("prompt", False) == False:
+            session["prompt"] = True
+            send("Prompt will be shown.")
+        else:
+            session["prompt"] = False
+            send("Prompt will be hidden.")
+    else:
+        send("Command not found. Please try again.")
 
 
 def _fetch_my_stock_portfolio():
@@ -99,12 +109,7 @@ def _fetch_gmail_updates():
         send(f"You have ___`{len(gmail_unread)}`___ unread emails")
         for m in gmail_unread:
             send("\n\n---\n\n")
-            openai_call(
-                _truncate_text(m["body"]),
-                "[DO NOT CREATE RESPONSE] Condense email context with subject and summary, KEEP critical details like time,person,action,amount.",
-                model=ADVANCED_MODEL,
-                max_tokens=2048,
-            )
+            _text_summary(_truncate_text(m["body"]), prompt=EMAIL_SUMMARY_PROMPT)
             send("\n\nSources:\n\t" + m["link"] + "\n")
     else:
         send("No unread emails.")
@@ -116,21 +121,20 @@ def _fetch_news():
         send(f"Found ___`{len(news)}`___ news updates")
         for m in news:
             send("\n\n---\n\n")
-            openai_call(
-                _truncate_text(m["body"]),
-                "Condense the news context with subject and summary, KEEP critical details like time,person,action,amount.",
-                model=COMPLETIONS_MODEL,
-                max_tokens=1024,
-            )
+            _text_summary(m["body"], prompt=NEWS_SUMMARY_PROMPT)
             send("\n\nSources:\n\t" + m["link"] + "\n")
     else:
         send("No unread news.")
 
 
-def _text_summary(text) -> str:
+def _text_summary(text, **kwargs) -> str:
+    prompt = kwargs.get("prompt", None)
+    if prompt is None:
+        prompt = TEXT_SUMMARY_PROMPT
+
     res = openai_call(
         text,
-        "Condense the text, KEEP critical details like time,person,action,amount.",
+        prompt,
         model=ADVANCED_MODEL,
         max_tokens=2048,
     )
