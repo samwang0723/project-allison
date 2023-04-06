@@ -1,3 +1,5 @@
+import uuid
+
 from project_allison.constants import STATIC_FOLDER
 from project_allison.downloader import download_content
 from project_allison.chat_completion import (
@@ -20,72 +22,128 @@ def handle_tasks(json_data):
         )
         task_name = item["task"]
         if task_name == "pull-my-stock-portfolio":
-            picked_stocks = download_content("finance::picked")
-            if len(picked_stocks) > 0:
-                send(f"Found ___`{len(picked_stocks)}`___ picked stocks\n\n")
-                _pretty_print_stocks(picked_stocks)
-            else:
-                send("You don't have picked stocks currently")
+            _fetch_my_stock_portfolio()
             break
         elif task_name == "pull-stock-selections":
             send("Fetching stock selections is constructing.")
             break
         elif task_name == "fetch-gmail-updates":
-            gmail_unread = download_content("gmail")
-            if len(gmail_unread) > 0:
-                send(f"You have ___`{len(gmail_unread)}`___ unread emails")
-                for m in gmail_unread:
-                    send("\n\n---\n\n")
-                    openai_call(
-                        _truncate_text(m["body"]),
-                        "[DO NOT CREATE RESPONSE] Condense email context with subject and summary, KEEP critical details like time,person,action,amount.",
-                        model=ADVANCED_MODEL,
-                        max_tokens=2048,
-                    )
-                    send("\n\nSources:\n\t" + m["link"] + "\n")
-            else:
-                send("No unread emails.")
+            _fetch_gmail_updates()
             break
         elif task_name == "fetch-news":
-            news = download_content("news")
-            if len(news) > 0:
-                send(f"Found ___`{len(news)}`___ news updates")
-                for m in news:
-                    send("\n\n---\n\n")
-                    openai_call(
-                        _truncate_text(m["body"]),
-                        "Condense the news context with subject and summary, KEEP critical details like time,person,action,amount.",
-                        model=COMPLETIONS_MODEL,
-                        max_tokens=1024,
-                    )
-                    send("\n\nSources:\n\t" + m["link"] + "\n")
-            else:
-                send("No unread news.")
+            _fetch_news()
             break
         elif task_name == "text-summary":
-            openai_call(
-                item["args"]["text"],
-                "Condense the text, KEEP critical details like time,person,action,amount.",
-                model=ADVANCED_MODEL,
-                max_tokens=2048,
-            )
+            arg = item["args"]
+            if _validate(arg, task_name, ["text"]):
+                _text_summary(arg["text"])
         elif task_name == "text-to-file":
             arg = item["args"]
-            file_name = arg["file"]
-            content = arg["text"]
-            full_path = f"{STATIC_FOLDER}/tmp/{file_name}"
-            with open(full_path, "w") as f:
-                f.write(content)
-            send(f"File [{file_name}](static/tmp/{file_name}) saved successfully.")
+            if _validate(arg, task_name, ["text"]):
+                content = arg["text"]
+                if "file" in arg:
+                    file_name = arg["file"]
+                else:
+                    unique_id = uuid.uuid4()
+                    file_name = str(unique_id) + ".txt"
+                _text_to_file(file_name, content)
         else:
             send(f"Task `{task_name}` not found. Please try again.")
 
 
 def handle_system_command(action):
     if action in _system_commands:
-        _handle_system_command(action)
+        if "reset_session" in action:
+            if session.get("history", []):
+                session["history"].clear()
+            send("Session being reset successfully.")
+        elif "similarity" in action:
+            if session.get("similarity", False) == False:
+                session["similarity"] = True
+                send("Similarity scores will be shown.")
+            else:
+                session["similarity"] = False
+                send("Similarity scores will be hidden.")
+        elif "prompt" in action:
+            if session.get("prompt", False) == False:
+                session["prompt"] = True
+                send("Prompt will be shown.")
+            else:
+                session["prompt"] = False
+                send("Prompt will be hidden.")
     else:
         send("Command not found. Please try again.")
+
+
+def _validate(args, task_name, expected_keys):
+    for key in expected_keys:
+        if key not in args:
+            send(f"No {key} found while performing {task_name}.")
+            return False
+
+    return True
+
+
+def _fetch_my_stock_portfolio():
+    picked_stocks = download_content("finance::picked")
+    if len(picked_stocks) > 0:
+        send(f"Found ___`{len(picked_stocks)}`___ picked stocks\n\n")
+        _pretty_print_stocks(picked_stocks)
+    else:
+        send("You don't have picked stocks currently")
+
+
+def _fetch_gmail_updates():
+    gmail_unread = download_content("gmail")
+    if len(gmail_unread) > 0:
+        send(f"You have ___`{len(gmail_unread)}`___ unread emails")
+        for m in gmail_unread:
+            send("\n\n---\n\n")
+            openai_call(
+                _truncate_text(m["body"]),
+                "[DO NOT CREATE RESPONSE] Condense email context with subject and summary, KEEP critical details like time,person,action,amount.",
+                model=ADVANCED_MODEL,
+                max_tokens=2048,
+            )
+            send("\n\nSources:\n\t" + m["link"] + "\n")
+    else:
+        send("No unread emails.")
+
+
+def _fetch_news():
+    news = download_content("news")
+    if len(news) > 0:
+        send(f"Found ___`{len(news)}`___ news updates")
+        for m in news:
+            send("\n\n---\n\n")
+            openai_call(
+                _truncate_text(m["body"]),
+                "Condense the news context with subject and summary, KEEP critical details like time,person,action,amount.",
+                model=COMPLETIONS_MODEL,
+                max_tokens=1024,
+            )
+            send("\n\nSources:\n\t" + m["link"] + "\n")
+    else:
+        send("No unread news.")
+
+
+def _text_summary(text) -> str:
+    res = openai_call(
+        text,
+        "Condense the text, KEEP critical details like time,person,action,amount.",
+        model=ADVANCED_MODEL,
+        max_tokens=2048,
+    )
+
+    return res
+
+
+def _text_to_file(file_name, content):
+    full_path = f"{STATIC_FOLDER}/tmp/{file_name}"
+    with open(full_path, "w") as f:
+        f.write(content)
+
+    send(f"File [{file_name}](static/tmp/{file_name}) saved successfully.")
 
 
 def _pretty_print_stocks(stocks):
@@ -112,27 +170,6 @@ def _pretty_print_stocks(stocks):
         id = stock[1]
         previews += f"* https://stock.wearn.com/finance_chart.asp?stockid={id}&timekind=0&timeblock=120&sma1=8&sma2=21&sma3=55&volume=1\n"
     send(f"update from `{date}`\n```{table.draw()}```\n\n{previews}")
-
-
-def _handle_system_command(message):
-    if "reset_session" in message:
-        if session.get("history", []):
-            session["history"].clear()
-        send("Session being reset successfully.")
-    elif "similarity" in message:
-        if session.get("similarity", False) == False:
-            session["similarity"] = True
-            send("Similarity scores will be shown.")
-        else:
-            session["similarity"] = False
-            send("Similarity scores will be hidden.")
-    elif "prompt" in message:
-        if session.get("prompt", False) == False:
-            session["prompt"] = True
-            send("Prompt will be shown.")
-        else:
-            session["prompt"] = False
-            send("Prompt will be hidden.")
 
 
 def _truncate_text(text):
