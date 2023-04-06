@@ -4,7 +4,7 @@ import re
 import pandas as pd
 from transformers import GPT2TokenizerFast
 from bs4 import BeautifulSoup, NavigableString
-from .constants import MATERIAL_FILE
+from project_allison.constants import MATERIAL_FILE
 
 TOKENIZER = GPT2TokenizerFast.from_pretrained("gpt2")
 MAX_TOKENS = 2046
@@ -184,6 +184,10 @@ def parse_html(title, soup) -> list[str]:
                         current_content += SEPARATOR + link_url.strip()
                     elif isinstance(sibling, NavigableString):
                         current_content += SEPARATOR + sibling.strip()
+                    elif sibling.name == "table":
+                        regular_table = _extract_table(sibling, "table")
+                        if len(regular_table) > 0:
+                            current_content += SEPARATOR + regular_table
                     else:
                         current_content += (
                             SEPARATOR
@@ -200,18 +204,7 @@ def parse_html(title, soup) -> list[str]:
                 + current_content.replace("\n", SEPARATOR).replace("\r", SEPARATOR)
             )
 
-            # Check if the current content contains at least 2 verbs and nouns
-            contains_verb_noun = 0
-            doc = NLP(current_content)
-            for token in doc:
-                if token.pos_ == "VERB":
-                    contains_verb_noun += 1
-                elif token.pos_ == "NOUN":
-                    contains_verb_noun += 1
-
-            if contains_verb_noun >= 2:
-                body.append(current_content)
-
+            body.append(current_content)
             current_content = ""
 
     return body
@@ -263,3 +256,22 @@ def _find_last_period(tokens, max_tokens):
         if token == ".":
             last_period_index = i
     return last_period_index
+
+
+def _extract_table(table, key) -> str:
+    if table.name != key:
+        return ""
+
+    headers = []
+    for header in table.find_all("th"):
+        headers.append(header.text)
+
+    text = ""
+    for row in table.find_all("tr"):
+        row_text = ""
+        for i, cell in enumerate(row.find_all("td")):
+            row_text += headers[i] + ": " + cell.text + ", "
+        if row_text:
+            text += row_text[:-2] + "| "
+
+    return text
