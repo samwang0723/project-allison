@@ -1,6 +1,6 @@
 
-<a name="v1.0.1"></a>
-## v1.0.1 (2023-04-06)
+<a name="1.0.1"></a>
+## 1.0.1 (2023-04-06)
 
 ### Feat
 
@@ -104,6 +104,7 @@
 
 ### Refactor
 
+* Update makefile for release purpose
 * adjust input height and connect with finance command
 * remove max image count
 * support stock preview
