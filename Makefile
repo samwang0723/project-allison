@@ -71,13 +71,11 @@ run: venv ## Run project_allison
 	$(PYTHON) project_allison/__main__.py
 
 # Targets
-.PHONY: changelog tag release
-
-changelog:
+.PHONY: release
+release:
 	@echo "Generating changelog for version $(NEW_VERSION)..."
-	git-chglog -o CHANGELOG.md
+	git-chglog --next-tag $(NEW_VERSION) -o CHANGELOG.md
 
-tag:
 	@echo "Tagging version $(NEW_VERSION)..."
 	@echo "$(NEW_VERSION)" > $(VERSION_FILE)
 	@git add $(VERSION_FILE) $(CHANGELOG_FILE)
@@ -85,7 +83,6 @@ tag:
 	@git tag -a "v$(NEW_VERSION)" -m "Version $(NEW_VERSION)"
 	@echo "Version $(NEW_VERSION) tagged."
 
-release: changelog tag
 	@echo "Releasing version $(NEW_VERSION)..."
 	@git push origin "v$(NEW_VERSION)"
 	@echo "Version $(NEW_VERSION) released."
