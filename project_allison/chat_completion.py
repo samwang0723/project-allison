@@ -37,9 +37,10 @@ AVAILABLE_TASKS = [
     "text-summary",
     "text-to-file",
     "text-to-diagram",
-    "image-to-text",
-    "query-knowledgebase",
-    "console-exeution",
+    "fetch-jira-updates",
+    # "image-to-text",
+    # "query-knowledgebase",
+    # "console-exeution",
 ]
 
 

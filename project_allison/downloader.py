@@ -14,6 +14,7 @@ __plugin_mapping = {
     "NewsAPI": "NEWS",
     "Finance": "FINANCE",
     "Pdf": "PDF",
+    "Jira": "JIRA",
 }
 
 
@@ -43,6 +44,10 @@ def load_plugins():
                     print(f"load class {obj_name} in module {module_name}")
                     if obj_name in __plugin_mapping:
                         __plugins[__plugin_mapping[obj_name]] = obj()
+
+
+def get_plugin(type_id: str) -> PluginInterface:
+    return __plugins[type_id]
 
 
 def download_content(download_type: str):

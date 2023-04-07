@@ -1,7 +1,7 @@
 import uuid
 
 from project_allison.constants import STATIC_FOLDER
-from project_allison.downloader import download_content
+from project_allison.downloader import download_content, get_plugin
 from project_allison.chat_completion import (
     openai_call,
     ADVANCED_MODEL,
@@ -31,6 +31,11 @@ def handle_tasks(json_data):
             break
         elif task_name == "pull-stock-selections":
             send("Fetching stock selections is constructing.")
+            break
+        elif task_name == "fetch-jira-updates":
+            arg = item["args"]
+            if _validate(arg, task_name, ["text"]):
+                _fetch_jira_updates(arg["text"])
             break
         elif task_name == "fetch-gmail-updates":
             _fetch_gmail_updates()
@@ -92,6 +97,33 @@ def _toggle_debugging(action):
             send("Prompt will be hidden.")
     else:
         send("Command not found. Please try again.")
+
+
+def _fetch_jira_updates(ticket_no):
+    jira = get_plugin("JIRA")
+    issues = jira.download(id=ticket_no)
+    if len(issues) == 0:
+        send("No ticket found.")
+        return
+
+    issue = issues[0]
+    summary = issue.fields.summary
+    status = issue.fields.status.name
+    send(f"Title: `{summary}`, Status: `{status}`\n\n")
+
+    child_issues = issues[1:]
+    for child in child_issues:
+        ticket_no = child.key
+        summary = child.fields.summary
+        status = child.fields.status.name
+        link = jira.construct_link(id=ticket_no)
+        send(f" - `{status}` ({ticket_no})[{link}] `{summary}`\n")
+
+    comments = ""
+    for c in issue.fields.comment.comments:
+        comments += f"{c.author.displayName}:\n\t{c.body}\n"
+    if comments != "":
+        send(f"\n\nComments:\n\t - {comments}")
 
 
 def _fetch_my_stock_portfolio():
