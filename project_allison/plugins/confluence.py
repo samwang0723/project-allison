@@ -68,6 +68,7 @@ class Wiki(PluginInterface):
                     "space": kwargs["space"],
                     "page": page,
                     "link": kwargs["link"],
+                    "title": kwargs["title"],
                     "attachments": attachments,
                 }
             )

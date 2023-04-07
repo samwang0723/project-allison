@@ -82,7 +82,9 @@ def __download_from_source_csv() -> list[str]:
                 if link not in downloaded:
                     print(f" > Downloading {link}, space: {space}, id: {id}")
                     page = executer.download(file_type="gdrive", file_id=id)
-                    pages.append({"space": space, "page": page[0], "link": link})
+                    pages.append(
+                        {"space": space, "page": page[0], "link": link, "title": header}
+                    )
             elif space == "WEB":
                 link = id
                 if link not in downloaded:
@@ -96,6 +98,7 @@ def __download_from_source_csv() -> list[str]:
                                 "page": page,
                                 "link": link,
                                 "attachments": attachments,
+                                "title": header,
                             }
                         )
             elif space == "PDF":
@@ -117,7 +120,9 @@ def __download_from_source_csv() -> list[str]:
                 if link not in downloaded:
                     print(f" > Downloading {link}, space: {space}, id: {id}")
 
-                    data = executer.download(id=id, space=space, link=link)
+                    data = executer.download(
+                        id=id, space=space, link=link, title=header
+                    )
                     if len(data) > 0:
                         pages.append(data[0])
 

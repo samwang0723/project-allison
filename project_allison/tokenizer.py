@@ -31,7 +31,7 @@ def extract_content(chunk):
             match = re.search(pattern, page)
 
             # Get the text between the delimiters and the text after the second delimiter
-            title = match.group(1)
+            title = item["title"] + ": " + match.group(1)
             content = match.group(2)
             soup = BeautifulSoup(content, "html.parser")
             body = parse_html(title, soup)
@@ -46,7 +46,7 @@ def extract_content(chunk):
             else:
                 title = ""
             soup = BeautifulSoup(page, "html.parser")
-            body = parse_web(title, soup)
+            body = parse_web(item["title"] + ": " + title, soup)
         elif space == "PDF":
             page = item["page"]
             link = item["link"]
@@ -55,7 +55,7 @@ def extract_content(chunk):
             body = parse_pdf(title, soup)
         else:
             page = item["page"]
-            title = page["title"]
+            title = item["title"] + ": " + page["title"]
             link = item["link"]
             htmlbody = page["body"]["storage"]["value"]
             soup = BeautifulSoup(htmlbody, "html.parser")
@@ -271,10 +271,10 @@ def _extract_table(table, key) -> str:
         row_text = ""
         for i, cell in enumerate(row.find_all("td")):
             if i < len(headers):
-                row_text += headers[i] + ": " + cell.text + ", "
+                row_text += "(" + headers[i] + "): " + cell.text + " - "
             else:
-                row_text += cell.text + ", "
+                row_text += cell.text + " - "
         if row_text:
-            text += row_text[:-2] + "| "
+            text += row_text[:-2] + " | "
 
     return text
