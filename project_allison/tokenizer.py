@@ -1,10 +1,8 @@
-import os
 import spacy
 import re
 import pandas as pd
 from transformers import GPT2TokenizerFast
 from bs4 import BeautifulSoup, NavigableString
-from project_allison.constants import MATERIAL_FILE
 
 TOKENIZER = GPT2TokenizerFast.from_pretrained("gpt2")
 MAX_TOKENS = 2046
@@ -223,18 +221,7 @@ def get_dataframe(pages) -> pd.DataFrame:
         collect, columns=["title", "link", "body", "num_tokens", "attachments"]
     )
 
-    return __merge_old_content(df)
-
-
-def __merge_old_content(df):
-    if os.path.isfile(MATERIAL_FILE) is False:
-        return df
-    else:
-        # merge existing files
-        old_df = pd.read_csv(MATERIAL_FILE)
-        merged_df = pd.concat([old_df, df])
-
-        return merged_df
+    return df
 
 
 def _map_reduce(title, link, content, sum_tokens, attachments):

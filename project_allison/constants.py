@@ -19,9 +19,9 @@ args = parser.parse_args()
 config_path = args.config_path
 
 ENV_PATH = os.path.join(config_path, ".env")
-MATERIAL_FILE = os.path.join(config_path, "data", "material.csv")
 SOURCE_FILE = os.path.join(config_path, "data", "source.csv")
 STORED_TOKEN = os.path.join(config_path, "auth", "token.json")
 CREDENTIAL_TOKEN = os.path.join(config_path, "auth", "credentials.json")
 TEMPLATE_FOLDER = os.path.join(config_path, "templates")
 STATIC_FOLDER = os.path.join(config_path, "static")
+VECTOR_STORAGE = os.path.join(config_path, "data")
