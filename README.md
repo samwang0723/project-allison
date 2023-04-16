@@ -9,12 +9,9 @@ Project Allison is an assistant with openai, use document embeddings to understa
 
 ## Commands
 
-    1. command:fetch_gmail
-    2. command:fetch_news
-    3. command:featch_finance
-    4. command:similarity
-    5. command:prompt
-    6. command:reset_session
+    1. command:similarity
+    2. command:prompt
+    3. command:reset_session
 
 ### File operations
 
@@ -71,3 +68,9 @@ Please make sure you have all source files and credentials put under `$(HOME)/.p
 
     $ source ./venv/bin/activate
     $ project-allison --config-path=$HOME/.project_allison
+
+### While failing doing make install with clang errors
+$ brew install llvm@14
+
+### Add customized clang into ~/.zshrc
+export PATH="/opt/homebrew/Cellar/llvm@14/14.0.6/bin:$PATH"
