@@ -10,14 +10,13 @@ from project_allison.vectordb import query_vector_similarity
 
 from dotenv import load_dotenv
 from flask_socketio import send
-from flask import session
 from chromadb.api.models.Collection import Collection
 
 
 COMPLETIONS_MODEL = "gpt-3.5-turbo"
 ADVANCED_MODEL = "gpt-4"
 EMBEDDING_MODEL = "text-embedding-ada-002"
-MAX_SECTION_LEN = 2046
+MAX_SECTION_LEN = 1024 * 3
 SEPARATOR = "\n* "
 ENCODING = "gpt2"  # encoding for text-davinci-003
 MIN_SIMILARITY = 0.75
@@ -61,11 +60,6 @@ def openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str:
             # iterate through the stream of events
             collected_messages = []
             for chunk in response:
-                if session.get("stopped_by_user", False) == True:
-                    session["stopped_by_user"] = False
-                    print("Stopped by user")
-                    break
-
                 # extract the message
                 chunk_message = chunk["choices"][0]["delta"]
                 collected_messages.append(chunk_message)
@@ -105,7 +99,7 @@ def construct_prompt(question: str, collection: Collection):
         for i, document_section in enumerate(documents):
             similarity = float(distances[i])
             title = metadatas[i]["title"]
-            similarities.append(f"{title} - {similarity}")
+            similarities.append(f"{title} - *{similarity}*")
 
             if similarity >= MIN_DISTANCE:
                 continue
@@ -121,9 +115,12 @@ def construct_prompt(question: str, collection: Collection):
             chosen_sections.append(str(SEPARATOR + document_section.replace("\n", " ")))
 
             chosen_sections_links.append(metadatas[i]["link"])
-            if len(metadatas[i]["attachments"]) > 0:
-                chosen_sections_attachments.append(metadatas[i]["attachments"])
-                deduped_attachments = list(set(chosen_sections_attachments))
+            if "attachments" in metadatas[i] and len(metadatas[i]["attachments"]) > 0:
+                attachments = metadatas[i]["attachments"].split("|")
+                trimmed_array = [s.strip() for s in attachments]
+                if len(trimmed_array) > 0:
+                    chosen_sections_attachments.extend(trimmed_array)
+                    deduped_attachments = list(set(chosen_sections_attachments))
     except Exception as e:
         print(f"{inspect.currentframe().f_code.co_name}, Error: {e}")
 
