@@ -1,6 +1,27 @@
 
-<a name="1.0.1"></a>
-## 1.0.1 (2023-04-06)
+<a name="1.0.2"></a>
+## [1.0.2](https://github.com/samwang0723/project-allison/compare/v1.0.1...1.0.2) (2023-04-17)
+
+### Feat
+
+* allow interrupt stream response and have distance display
+* update requirements.txt
+* support vector database
+* support JIRA pulling
+* update Makefile
+
+### Fix
+
+* update attachments dedup
+* remove unused constant
+* update make install error solving
+* enahance the title and parsing logic
+* solve html parsing index out of bound issue
+* enhance the table parsing
+
+
+<a name="v1.0.1"></a>
+## v1.0.1 (2023-04-06)
 
 ### Feat
 
