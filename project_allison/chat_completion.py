@@ -3,24 +3,27 @@ import openai
 import tiktoken
 import time
 import json
-import pandas as pd
+import inspect
 
 from project_allison.constants import ENV_PATH
+from project_allison.vectordb import query_vector_similarity
 
 from dotenv import load_dotenv
-from openai.embeddings_utils import get_embedding, cosine_similarity
 from flask_socketio import send
+from chromadb.api.models.Collection import Collection
+
 
 COMPLETIONS_MODEL = "gpt-3.5-turbo"
 ADVANCED_MODEL = "gpt-4"
 EMBEDDING_MODEL = "text-embedding-ada-002"
-MAX_SECTION_LEN = 2046
+MAX_SECTION_LEN = 1024 * 3
 SEPARATOR = "\n* "
 ENCODING = "gpt2"  # encoding for text-davinci-003
 MIN_SIMILARITY = 0.75
+MIN_DISTANCE = 0.4
 SEPARATOR_LEN = len(tiktoken.get_encoding(ENCODING).encode(SEPARATOR))
 CONVERSATION_PROMPT = """
-#1 The AI assistant can parse user input and answer questions based on context given. You need to make sure all the code MUST wrapped inside 
+#1 The AI assistant can parse user input and answer questions based on context given. You need to make sure all the code MUST wrapped inside
 ```(code-language)
 (code)
 ```
@@ -71,15 +74,15 @@ def openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str:
         except Exception as e:
             retries += 1
             # If the connection is reset, wait for 5 seconds and retry
-            print(f"Error: {e}, retrying in 5 seconds")
+            print(
+                f"{inspect.currentframe().f_code.co_name}, Error: {e}, retrying in 5 seconds"
+            )
             time.sleep(5)
 
     return ""
 
 
-def construct_prompt(question: str, df: pd.DataFrame):
-    most_relevant_document_sections = _order_by_similarity(question, df)
-
+def construct_prompt(question: str, collection: Collection):
     chosen_sections = []
     chosen_sections_links = []
     deduped_attachments = []
@@ -87,26 +90,39 @@ def construct_prompt(question: str, df: pd.DataFrame):
     chosen_sections_len = 0
     similarities = []
 
-    for _, document_section in most_relevant_document_sections.iterrows():
-        similarity = document_section.similarity
-        if similarity >= MIN_SIMILARITY:
-            similarity = f"**{similarity}**"
-        similarities.append(f"{document_section.title} - {similarity}")
-        if document_section.similarity < MIN_SIMILARITY:
-            continue
+    try:
+        most_relevant_document_sections = _order_by_similarity(question, collection)
+        documents = most_relevant_document_sections["documents"][0]
+        metadatas = most_relevant_document_sections["metadatas"][0]
+        distances = most_relevant_document_sections["distances"][0]
 
-        chosen_sections_len += int(document_section.num_tokens) + SEPARATOR_LEN
-        if chosen_sections_len > MAX_SECTION_LEN:
-            break
+        for i, document_section in enumerate(documents):
+            similarity = float(distances[i])
+            title = metadatas[i]["title"]
+            similarities.append(f"{title} - *{similarity}*")
 
-        chosen_sections.append(
-            str(SEPARATOR + document_section.body.replace("\n", " "))
-        )
+            if similarity >= MIN_DISTANCE:
+                continue
 
-        chosen_sections_links.append(document_section.link)
-        if len(document_section.attachments) > 0:
-            chosen_sections_attachments.extend(document_section.attachments)
-            deduped_attachments = list(set(chosen_sections_attachments))
+            tokens = int(metadatas[i]["num_tokens"])
+            chosen_sections_len += tokens + SEPARATOR_LEN
+            if chosen_sections_len > MAX_SECTION_LEN:
+                print(
+                    f"Max section length reached: {chosen_sections_len}, title: {title}, token: {tokens}"
+                )
+                break
+
+            chosen_sections.append(str(SEPARATOR + document_section.replace("\n", " ")))
+
+            chosen_sections_links.append(metadatas[i]["link"])
+            if "attachments" in metadatas[i] and len(metadatas[i]["attachments"]) > 0:
+                attachments = metadatas[i]["attachments"].split("|")
+                trimmed_array = [s.strip() for s in attachments]
+                if len(trimmed_array) > 0:
+                    chosen_sections_attachments.extend(trimmed_array)
+                    deduped_attachments = list(set(chosen_sections_attachments))
+    except Exception as e:
+        print(f"{inspect.currentframe().f_code.co_name}, Error: {e}")
 
     if len(chosen_sections) == 0:
         prompt = ""
@@ -117,19 +133,6 @@ def construct_prompt(question: str, df: pd.DataFrame):
         )
 
     return (prompt, chosen_sections_links, similarities, deduped_attachments)
-
-
-def inject_embeddings(df: pd.DataFrame) -> pd.DataFrame:
-    if "embeddings" in df.columns:
-        mask = df["embeddings"].isna()
-        df.loc[mask, "embeddings"] = df.loc[mask, "body"].apply(
-            lambda x: get_embedding(x, engine=EMBEDDING_MODEL)
-        )
-    else:
-        df["embeddings"] = df["body"].apply(
-            lambda x: get_embedding(x, engine=EMBEDDING_MODEL)
-        )
-    return df
 
 
 def parse_task_prompt(query, history):
@@ -157,6 +160,8 @@ def parse_task_prompt(query, history):
     )
 
     json_data = json.loads(resp["choices"][0]["message"]["content"])
+    print(json_data)
+
     return json_data
 
 
@@ -173,13 +178,8 @@ def _chat_completion(
     )
 
 
-def _order_by_similarity(query: str, df: pd.DataFrame):
-    query_embedding = get_embedding(query, engine=EMBEDDING_MODEL)
-    df["similarity"] = df.embeddings.apply(
-        lambda x: cosine_similarity(x, query_embedding)
-    )
-    results = df.sort_values("similarity", ascending=False).head(3)
-    return results
+def _order_by_similarity(query: str, collection: Collection):
+    return query_vector_similarity(collection, query)
 
 
 def _replace_slot(text, entries):

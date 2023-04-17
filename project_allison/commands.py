@@ -22,9 +22,6 @@ NEWS_SUMMARY_PROMPT = "Condense the news context with subject and summary, KEEP 
 
 def handle_tasks(json_data):
     for item in json_data:
-        print(
-            f"Task: {item['task']}, ID: {item['id']}, Dep: {item['dep']}, Args: {item['args']}"
-        )
         task_name = item["task"]
         if task_name == "pull-my-stock-portfolio":
             _fetch_my_stock_portfolio()
@@ -66,7 +63,8 @@ def handle_system_command(action):
         if "reset_session" in action:
             if session.get("history", []):
                 session["history"].clear()
-            send("Session being reset successfully.")
+
+            send(" Session being reset successfully.")
         else:
             _toggle_debugging(action)
 

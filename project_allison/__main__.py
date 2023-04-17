@@ -1,13 +1,10 @@
-"""The main entry point. Invoke as `project_allison' or `python -m jarvis'.
-"""
-import pandas as pd
-import numpy as np
-import ast
+import select
 import sys
 import eventlet
 import os
 import base64
 import uuid
+import inspect
 
 from project_allison.commands import handle_system_command, handle_tasks
 from project_allison.tokenizer import get_dataframe
@@ -17,20 +14,21 @@ from project_allison.downloader import (
 )
 from project_allison.chat_completion import (
     openai_call,
-    inject_embeddings,
     construct_prompt,
     COMPLETIONS_MODEL,
     ADVANCED_MODEL,
     parse_task_prompt,
 )
 from project_allison.status import ExitStatus
-from project_allison.constants import MATERIAL_FILE, TEMPLATE_FOLDER, STATIC_FOLDER
+from project_allison.constants import TEMPLATE_FOLDER, STATIC_FOLDER
 from project_allison.constants import ENV_PATH
+from project_allison.vectordb import get_vector_collection, insert_vendor_knowledgebase
 
 from dotenv import load_dotenv
-from collections import deque
 from flask import Flask, render_template, session
 from flask_socketio import SocketIO, send
+from collections import deque
+
 
 USE_GPT_4 = "(gpt-4)"
 MAX_HISTORY = 3
@@ -43,7 +41,7 @@ app.secret_key = os.environ["FLASK_SECRET_KEY"]
 app.config["PERMANENT_SESSION_LIFETIME"] = 1800  # 30 minutes in seconds
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 socketio = SocketIO(app)
-_global_df_cache = deque(maxlen=1)
+_global_collection = deque(maxlen=1)
 
 
 def _query(query: str):
@@ -57,7 +55,7 @@ def _query(query: str):
             output = "Task completed"
         else:  # Regular conversational call
             prompt, links, similarities, attachments = construct_prompt(
-                query, _global_df_cache[0]
+                query, _global_collection[0]
             )
             prompt = "\n".join(history_records) + prompt
             deduped_links = list(set(links))
@@ -75,18 +73,6 @@ def _query(query: str):
             history_records.append(f"Question: {query}. Answer: {output}. ")
 
     return output, deduped_links, attachments, prompt, similarities
-
-
-def _reload_csv():
-    print("[4] Reloading from CSV sources")
-    _global_df_cache.clear()
-
-    df = pd.read_csv(MATERIAL_FILE)
-    df["embeddings"] = df["embeddings"].apply(lambda x: np.array(ast.literal_eval(x)))
-    # Safely convert the 'attachments' column from string to list
-    df["attachments"] = df["attachments"].apply(lambda x: ast.literal_eval(x))
-
-    _global_df_cache.append(df)
 
 
 @app.route("/")
@@ -115,7 +101,7 @@ def handle_upload_image(data):
         )
         send("[[stop]]")
     except Exception as e:
-        print(f"[handle_upload_image] Error: {e}")
+        print(f"{inspect.currentframe().f_code.co_name}, Error: {e}")
         send("Error: " + str(e))
 
 
@@ -129,7 +115,7 @@ def handle_mode(mode):
             send("Switching to mobile mode...")
             session["mode"] = "mobile"
     except Exception as e:
-        print(f"[handle_mode] Error: {e}")
+        print(f"{inspect.currentframe().f_code.co_name}, Error: {e}")
         send("Error: " + str(e))
 
     send(STOP_SIGN)
@@ -173,7 +159,7 @@ def handle_message(message):
 
             send(output)
     except Exception as e:
-        send(f"[handle_message] Error: {e}")
+        send(f"{inspect.currentframe().f_code.co_name}, Error: {e}")
 
     send(STOP_SIGN)
 
@@ -181,20 +167,19 @@ def handle_message(message):
 def main():
     load_plugins()
 
-    print("[1] Downloading content from external sources")
-    pages = download_content("source")
+    _global_collection.append(get_vector_collection("project-allison"))
+    print(
+        f"[1] Downloading content from external sources, collection={_global_collection[0]}"
+    )
+
+    pages = download_content("source", vdb=_global_collection[0])
     df = get_dataframe(pages)
 
-    print("[2] Calculate embeddings based on dataframe")
-    df_with_embedding = inject_embeddings(df)
+    print("[2] Index into vector database")
+    insert_vendor_knowledgebase(_global_collection[0], df)
 
-    print("[3] Saving indexed CSV file")
-    df_with_embedding.to_csv(MATERIAL_FILE, index=False)
-
-    # Reload CSV once to prevent formatting misalignment
-    _reload_csv()
     # Listening input from user
-    socketio.run(app, host="0.0.0.0", port=8000, debug=True)
+    socketio.run(app, host="0.0.0.0", port=8009, debug=True, use_reloader=False)
 
     return ExitStatus.ERROR_CTRL_C.value
 

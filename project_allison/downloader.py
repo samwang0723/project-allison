@@ -2,9 +2,11 @@ import os
 import csv
 import inspect
 
+from chromadb.api.models.Collection import Collection
+
 from project_allison.plugins.plugin_interface import PluginInterface
 
-from .constants import SOURCE_FILE, MATERIAL_FILE
+from .constants import SOURCE_FILE
 
 __plugins = {}
 __plugin_mapping = {
@@ -50,11 +52,11 @@ def get_plugin(type_id: str) -> PluginInterface:
     return __plugins[type_id]
 
 
-def download_content(download_type: str):
+def download_content(download_type: str, vdb=None):
     __do_authenticate()
 
     if download_type == "source":
-        return __download_from_source_csv()
+        return __download_from_source_csv(vdb)
     elif download_type == "gmail":
         executer = __plugins["GOOGLE"]
         return executer.download(file_type="gmail")
@@ -66,9 +68,8 @@ def download_content(download_type: str):
         return executer.download(type="picked_stocks")
 
 
-def __download_from_source_csv() -> list[str]:
+def __download_from_source_csv(vdb: Collection) -> list[str]:
     pages = []
-    downloaded = __get_previous_downloaded()
 
     with open(SOURCE_FILE) as csvfile:
         reader = csv.DictReader(csvfile)
@@ -84,7 +85,7 @@ def __download_from_source_csv() -> list[str]:
 
             if space == "GOOGLE":
                 link = executer.construct_link(id=id)
-                if link not in downloaded:
+                if __not_indexed(vdb, link):
                     print(f" > Downloading {link}, space: {space}, id: {id}")
                     page = executer.download(file_type="gdrive", file_id=id)
                     pages.append(
@@ -92,7 +93,7 @@ def __download_from_source_csv() -> list[str]:
                     )
             elif space == "WEB":
                 link = id
-                if link not in downloaded:
+                if __not_indexed(vdb, link):
                     print(f" > Downloading {link}, space: {space}, id: {id}")
                     raw_data = executer.download(url=id)
                     for page in raw_data:
@@ -108,7 +109,7 @@ def __download_from_source_csv() -> list[str]:
                         )
             elif space == "PDF":
                 link = id
-                if link not in downloaded:
+                if __not_indexed(vdb, link):
                     print(f" > Downloading {link}, space: {space}, id: {id}")
                     raw_data = executer.download(url=id)
                     for page in raw_data:
@@ -122,7 +123,7 @@ def __download_from_source_csv() -> list[str]:
                         )
             else:
                 link = executer.construct_link(id=id, space=space)
-                if link not in downloaded:
+                if __not_indexed(vdb, link):
                     print(f" > Downloading {link}, space: {space}, id: {id}")
 
                     data = executer.download(
@@ -139,14 +140,8 @@ def __do_authenticate():
         plugin.authenticate()
 
 
-def __get_previous_downloaded() -> list[str]:
-    downloaded = []
-    if os.path.isfile(MATERIAL_FILE) is False:
-        return []
-
-    with open(MATERIAL_FILE) as downloaded_file:
-        downloaded_reader = csv.DictReader(downloaded_file)
-        for d in downloaded_reader:
-            downloaded.append(d["link"])
-
-    return list(set(downloaded))
+def __not_indexed(vdb, link) -> bool:
+    get_where_result = vdb.get(
+        where={"link": link},
+    )
+    return len(get_where_result["ids"]) == 0
