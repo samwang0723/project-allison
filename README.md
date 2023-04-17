@@ -13,22 +13,27 @@ Project Allison is an assistant with openai, use document embeddings to understa
     2. command:prompt
     3. command:reset_session
 
-### File operations
+### Executable Tasks
+Following with symbol `/` to let program can execute your breakdown tasks.
+Current support tasks
 
-command:save:{file_name}
+    1. pull-my-stock-portfolio
+    2. pull-stock-selections
+    3. fetch-gmail-updates
+    4. fetch-news
+    5. text-summary
+    6. text-to-file
+    7. text-to-diagram
+    8. fetch-jira-updates
 
-    command:save:{file_name}
-    ```
-    {text, code, etc...}
-    ```
+Program will parse your input into json format like
 
-command:diagram:
+    [
+      {'task': 'fetch-gmail-updates', 'id': 1, 'dep': [], 'args': {}}, 
+      {'task': 'text-summary', 'id': 2, 'dep': [1], 'args': {'text': '<GENERATED>-1'}}
+    ]
 
-    command:diagram:
-    ```
-    {dot format code}
-    ```
-
+and execute task method (if implemented)
 
 ## Setup .env variables
 

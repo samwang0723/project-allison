@@ -3,12 +3,14 @@ import openai
 import tiktoken
 import time
 import json
+import inspect
 
 from project_allison.constants import ENV_PATH
 from project_allison.vectordb import query_vector_similarity
 
 from dotenv import load_dotenv
 from flask_socketio import send
+from flask import session
 from chromadb.api.models.Collection import Collection
 
 
@@ -19,9 +21,10 @@ MAX_SECTION_LEN = 2046
 SEPARATOR = "\n* "
 ENCODING = "gpt2"  # encoding for text-davinci-003
 MIN_SIMILARITY = 0.75
+MIN_DISTANCE = 0.4
 SEPARATOR_LEN = len(tiktoken.get_encoding(ENCODING).encode(SEPARATOR))
 CONVERSATION_PROMPT = """
-#1 The AI assistant can parse user input and answer questions based on context given. You need to make sure all the code MUST wrapped inside 
+#1 The AI assistant can parse user input and answer questions based on context given. You need to make sure all the code MUST wrapped inside
 ```(code-language)
 (code)
 ```
@@ -58,6 +61,11 @@ def openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str:
             # iterate through the stream of events
             collected_messages = []
             for chunk in response:
+                if session.get("stopped_by_user", False) == True:
+                    session["stopped_by_user"] = False
+                    print("Stopped by user")
+                    break
+
                 # extract the message
                 chunk_message = chunk["choices"][0]["delta"]
                 collected_messages.append(chunk_message)
@@ -72,28 +80,42 @@ def openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str:
         except Exception as e:
             retries += 1
             # If the connection is reset, wait for 5 seconds and retry
-            print(f"Error: {e}, retrying in 5 seconds")
+            print(
+                f"{inspect.currentframe().f_code.co_name}, Error: {e}, retrying in 5 seconds"
+            )
             time.sleep(5)
 
     return ""
 
 
 def construct_prompt(question: str, collection: Collection):
+    chosen_sections = []
+    chosen_sections_links = []
+    deduped_attachments = []
+    chosen_sections_attachments = []
+    chosen_sections_len = 0
+    similarities = []
+
     try:
         most_relevant_document_sections = _order_by_similarity(question, collection)
         documents = most_relevant_document_sections["documents"][0]
         metadatas = most_relevant_document_sections["metadatas"][0]
-
-        chosen_sections = []
-        chosen_sections_links = []
-        deduped_attachments = []
-        chosen_sections_attachments = []
-        chosen_sections_len = 0
-        similarities = []
+        distances = most_relevant_document_sections["distances"][0]
 
         for i, document_section in enumerate(documents):
-            chosen_sections_len += int(metadatas[i]["num_tokens"]) + SEPARATOR_LEN
+            similarity = float(distances[i])
+            title = metadatas[i]["title"]
+            similarities.append(f"{title} - {similarity}")
+
+            if similarity >= MIN_DISTANCE:
+                continue
+
+            tokens = int(metadatas[i]["num_tokens"])
+            chosen_sections_len += tokens + SEPARATOR_LEN
             if chosen_sections_len > MAX_SECTION_LEN:
+                print(
+                    f"Max section length reached: {chosen_sections_len}, title: {title}, token: {tokens}"
+                )
                 break
 
             chosen_sections.append(str(SEPARATOR + document_section.replace("\n", " ")))
@@ -103,7 +125,7 @@ def construct_prompt(question: str, collection: Collection):
                 chosen_sections_attachments.append(metadatas[i]["attachments"])
                 deduped_attachments = list(set(chosen_sections_attachments))
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"{inspect.currentframe().f_code.co_name}, Error: {e}")
 
     if len(chosen_sections) == 0:
         prompt = ""
@@ -141,6 +163,8 @@ def parse_task_prompt(query, history):
     )
 
     json_data = json.loads(resp["choices"][0]["message"]["content"])
+    print(json_data)
+
     return json_data
 
 

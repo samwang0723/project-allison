@@ -66,7 +66,9 @@ def handle_system_command(action):
         if "reset_session" in action:
             if session.get("history", []):
                 session["history"].clear()
-            send("Session being reset successfully.")
+
+            session["stopped_by_user"] = True
+            send("**  [Session being reset successfully]  **")
         else:
             _toggle_debugging(action)
 

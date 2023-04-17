@@ -7,12 +7,14 @@ from chromadb.config import Settings
 from chromadb.utils import embedding_functions
 from chromadb.api.models.Collection import Collection
 
-from project_allison.constants import VECTOR_STORAGE
-
 
 def get_vector_collection(name: str) -> Collection:
     vector_db = chromadb.Client(
-        Settings(chroma_db_impl="duckdb+parquet", persist_directory=VECTOR_STORAGE)
+        Settings(
+            chroma_api_impl="rest",
+            chroma_server_host="localhost",
+            chroma_server_http_port="8000",
+        )
     )
 
     openai_ef = embedding_functions.OpenAIEmbeddingFunction(

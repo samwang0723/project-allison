@@ -1,6 +1,8 @@
 import spacy
 import re
 import pandas as pd
+import inspect
+
 from transformers import GPT2TokenizerFast
 from bs4 import BeautifulSoup, NavigableString
 
@@ -192,7 +194,7 @@ def parse_html(title, soup) -> list[str]:
                             + sibling.get_text(separator=SEPARATOR_DOT).strip()
                         )
                 except Exception as e:
-                    print(f"[parse_html] Error: {e}")
+                    print(f"{inspect.currentframe().f_code.co_name}, Error: {e}")
                     continue
             # Concatenate the content and add it to the result array
             # for better mapping

@@ -4,6 +4,7 @@ import eventlet
 import os
 import base64
 import uuid
+import inspect
 
 from project_allison.commands import handle_system_command, handle_tasks
 from project_allison.tokenizer import get_dataframe
@@ -100,7 +101,7 @@ def handle_upload_image(data):
         )
         send("[[stop]]")
     except Exception as e:
-        print(f"[handle_upload_image] Error: {e}")
+        print(f"{inspect.currentframe().f_code.co_name}, Error: {e}")
         send("Error: " + str(e))
 
 
@@ -114,7 +115,7 @@ def handle_mode(mode):
             send("Switching to mobile mode...")
             session["mode"] = "mobile"
     except Exception as e:
-        print(f"[handle_mode] Error: {e}")
+        print(f"{inspect.currentframe().f_code.co_name}, Error: {e}")
         send("Error: " + str(e))
 
     send(STOP_SIGN)
@@ -158,7 +159,7 @@ def handle_message(message):
 
             send(output)
     except Exception as e:
-        send(f"[handle_message] Error: {e}")
+        send(f"{inspect.currentframe().f_code.co_name}, Error: {e}")
 
     send(STOP_SIGN)
 
@@ -178,7 +179,7 @@ def main():
     insert_vendor_knowledgebase(_global_collection[0], df)
 
     # Listening input from user
-    socketio.run(app, host="0.0.0.0", port=8000, debug=True, use_reloader=False)
+    socketio.run(app, host="0.0.0.0", port=8009, debug=True, use_reloader=False)
 
     return ExitStatus.ERROR_CTRL_C.value
 
