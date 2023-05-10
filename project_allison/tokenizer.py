@@ -11,6 +11,7 @@ MAX_TOKENS = 2046
 NLP = spacy.load("en_core_web_sm")
 SEPARATOR_DOT = ". "
 SEPARATOR = " "
+CODE_WRAPPER = "```"
 
 
 def extract_content(chunk):
@@ -188,6 +189,14 @@ def parse_html(title, soup) -> list[str]:
                         regular_table = _extract_table(sibling, "table")
                         if len(regular_table) > 0:
                             current_content += SEPARATOR + regular_table
+                    elif sibling.name == "ac:structured-macro":
+                        current_content += (
+                            SEPARATOR
+                            + CODE_WRAPPER
+                            + sibling.get_text(separator=SEPARATOR_DOT).strip()
+                            + CODE_WRAPPER
+                            + SEPARATOR
+                        )
                     else:
                         current_content += (
                             SEPARATOR
@@ -201,7 +210,8 @@ def parse_html(title, soup) -> list[str]:
             current_content = (
                 header_text
                 + ": "
-                + current_content.replace("\n", SEPARATOR).replace("\r", SEPARATOR)
+                + current_content
+                # .replace("\n", SEPARATOR).replace("\r", SEPARATOR)
             )
 
             body.append(current_content)

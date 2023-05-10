@@ -144,4 +144,14 @@ def __not_indexed(vdb, link) -> bool:
     get_where_result = vdb.get(
         where={"link": link},
     )
+
     return len(get_where_result["ids"]) == 0
+
+
+def __debug_documents(vdb, result_ids):
+    if len(result_ids) > 0:
+        get_ids_result = vdb.get(
+            ids=result_ids,
+        )
+        print("\nGET ids: ", result_ids)
+        print("\nDocuments: \n", get_ids_result["documents"])
