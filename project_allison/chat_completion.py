@@ -14,7 +14,7 @@ from chromadb.api.models.Collection import Collection
 
 
 COMPLETIONS_MODEL = "gpt-3.5-turbo"
-ADVANCED_MODEL = "gpt-4"
+ADVANCED_MODEL = "gpt-4-32k"
 EMBEDDING_MODEL = "text-embedding-ada-002"
 MAX_SECTION_LEN = 1024 * 3
 SEPARATOR = "\n* "
