@@ -131,7 +131,7 @@ def handle_message(message):
             session["similarity"] = False
             session["prompt"] = False
 
-        if "command:" in message:
+        if message.startswith("command:"):
             action = message.split("command:")[1].strip()
             handle_system_command(action)
         else:
