@@ -11,7 +11,7 @@ from .constants import SOURCE_FILE
 __plugins = {}
 __plugin_mapping = {
     "Web": "WEB",
-    "Drive": "GOOGLE",
+    # "Drive": "GOOGLE",
     "Wiki": "OTHERS",
     "NewsAPI": "NEWS",
     "Finance": "FINANCE",
@@ -144,6 +144,14 @@ def __not_indexed(vdb, link) -> bool:
     get_where_result = vdb.get(
         where={"link": link},
     )
+
+    # Manual refresh content
+    # if len(get_where_result["ids"]) > 0:
+    #    __debug_documents(vdb, get_where_result["ids"])
+    #    if "d3ecf9d9-2a92-4682-b110-51e80b939d68" in get_where_result["ids"]:
+    #        vdb.delete(ids=get_where_result["ids"])
+    #        return True
+    #    return False
 
     return len(get_where_result["ids"]) == 0
 

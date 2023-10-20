@@ -26,25 +26,28 @@ class Drive(PluginInterface):
         self.__skip_gmails = os.getenv("SKIP_GMAIL_SENDER").split(",")
 
     def authenticate(self):
-        # The file token.json stores the user's access and refresh tokens, and is
-        # created automatically when the authorization flow completes for the first
-        # time.
-        if os.path.exists(STORED_TOKEN):
-            self.__creds = Credentials.from_authorized_user_file(
-                STORED_TOKEN, self.SCOPES
-            )
-        # If there are no (valid) credentials available, let the user log in.
-        if not self.__creds or not self.__creds.valid:
-            if self.__creds and self.__creds.expired and self.__creds.refresh_token:
-                self.__creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    CREDENTIAL_TOKEN, self.SCOPES
+        try:
+            # The file token.json stores the user's access and refresh tokens, and is
+            # created automatically when the authorization flow completes for the first
+            # time.
+            if os.path.exists(STORED_TOKEN):
+                self.__creds = Credentials.from_authorized_user_file(
+                    STORED_TOKEN, self.SCOPES
                 )
-                self.__creds = flow.run_local_server(port=0)
-            # Save the credentials for the next run
-            with open(STORED_TOKEN, "w") as token:
-                token.write(self.__creds.to_json())
+            # If there are no (valid) credentials available, let the user log in.
+            if not self.__creds or not self.__creds.valid:
+                if self.__creds and self.__creds.expired and self.__creds.refresh_token:
+                    self.__creds.refresh(Request())
+                else:
+                    flow = InstalledAppFlow.from_client_secrets_file(
+                        CREDENTIAL_TOKEN, self.SCOPES
+                    )
+                    self.__creds = flow.run_local_server(port=0)
+                # Save the credentials for the next run
+                with open(STORED_TOKEN, "w") as token:
+                    token.write(self.__creds.to_json())
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
     def download(self, **kwargs) -> list:
         output = []
