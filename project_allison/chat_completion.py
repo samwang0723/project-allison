@@ -14,7 +14,7 @@ from chromadb.api.models.Collection import Collection
 
 
 COMPLETIONS_MODEL = "gpt-3.5-turbo"
-ADVANCED_MODEL = "gpt-4"
+ADVANCED_MODEL = "gpt-4-1106-preview"
 EMBEDDING_MODEL = "text-embedding-ada-002"
 MAX_SECTION_LEN = 1024 * 3
 SEPARATOR = "\n* "
@@ -74,9 +74,9 @@ def openai_call(prompt, query, model=COMPLETIONS_MODEL, max_tokens=1024) -> str:
         except Exception as e:
             retries += 1
             # If the connection is reset, wait for 5 seconds and retry
-            print(
-                f"{inspect.currentframe().f_code.co_name}, Error: {e}, retrying in 5 seconds"
-            )
+            frame = inspect.currentframe()
+            assert frame is not None
+            print(f"{frame.f_code.co_name}, Error: {e}, retrying in 5 seconds")
             time.sleep(5)
 
     return ""
@@ -122,7 +122,9 @@ def construct_prompt(question: str, collection: Collection):
                     chosen_sections_attachments.extend(trimmed_array)
                     deduped_attachments = list(set(chosen_sections_attachments))
     except Exception as e:
-        print(f"{inspect.currentframe().f_code.co_name}, Error: {e}")
+        frame = inspect.currentframe()
+        assert frame is not None
+        print(f"{frame.f_code.co_name}, Error: {e}")
 
     if len(chosen_sections) == 0:
         prompt = ""

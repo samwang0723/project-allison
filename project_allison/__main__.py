@@ -28,7 +28,7 @@ from dotenv import load_dotenv
 from flask import Flask, render_template, session
 from flask_socketio import SocketIO, send
 from collections import deque
-
+from chromadb.api.models.Collection import Collection
 
 USE_GPT_4 = "(gpt-4)"
 MAX_HISTORY = 3
@@ -41,7 +41,7 @@ app.secret_key = os.environ["FLASK_SECRET_KEY"]
 app.config["PERMANENT_SESSION_LIFETIME"] = 1800  # 30 minutes in seconds
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 socketio = SocketIO(app)
-_global_collection = deque(maxlen=1)
+_global_collection: Collection = deque(maxlen=1)
 
 
 def _query(query: str):
@@ -60,12 +60,12 @@ def _query(query: str):
             prompt = "\n".join(history_records) + prompt
             deduped_links = list(set(links))
 
-            if USE_GPT_4 in query or len(prompt) + len(query) > 4096:
-                model = ADVANCED_MODEL
-                max_tokens = 2048
-            else:
-                model = COMPLETIONS_MODEL
-                max_tokens = 1024
+            # if USE_GPT_4 in query or len(prompt) + len(query) > 4096:
+            #     model = ADVANCED_MODEL
+            #     max_tokens = 2048
+            # else:
+            model = ADVANCED_MODEL  # COMPLETIONS_MODEL
+            max_tokens = 2048
 
             output = openai_call(prompt, query, model=model, max_tokens=max_tokens)
             if len(history_records) >= MAX_HISTORY:
@@ -101,7 +101,9 @@ def handle_upload_image(data):
         )
         send("[[stop]]")
     except Exception as e:
-        print(f"{inspect.currentframe().f_code.co_name}, Error: {e}")
+        frame = inspect.currentframe()
+        assert frame is not None
+        print(f"{frame.f_code.co_name}, Error: {e}")
         send("Error: " + str(e))
 
 
@@ -124,7 +126,6 @@ def handle_mode(mode):
 @socketio.on("message")
 def handle_message(message):
     try:
-        print(f"Received message: {message}")
         history_records = session.get("history", None)
         if history_records is None:
             session["history"] = []
@@ -159,7 +160,9 @@ def handle_message(message):
 
             send(output)
     except Exception as e:
-        send(f"{inspect.currentframe().f_code.co_name}, Error: {e}")
+        frame = inspect.currentframe()
+        assert frame is not None
+        send(f"{frame.f_code.co_name}, Error: {e}")
 
     send(STOP_SIGN)
 

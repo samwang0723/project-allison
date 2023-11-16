@@ -236,7 +236,7 @@ function formatMessage(message, showImg) {
             let code_lines = msg.split("\n");
             let language = code_lines.shift().trim(); // Remove the first line, which contains the language identifier.
             let code = code_lines.join("\n");
-            if (language === "" || language === "html") {
+            if (language === "" || language === "html" || language === "rust" || language === "markdown") {
                 code = code.replace(/</g, "&lt;").replace(/>/g, "&gt;");
             }
 
