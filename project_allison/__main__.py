@@ -38,7 +38,7 @@ load_dotenv(dotenv_path=ENV_PATH)
 eventlet.monkey_patch()
 app = Flask(__name__, template_folder=TEMPLATE_FOLDER, static_folder=STATIC_FOLDER)
 app.secret_key = os.environ["FLASK_SECRET_KEY"]
-app.config["PERMANENT_SESSION_LIFETIME"] = 1800  # 30 minutes in seconds
+app.config["PERMANENT_SESSION_LIFETIME"] = 60 * 60 * 24 * 5
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 socketio = SocketIO(app)
 _global_collection: Collection = deque(maxlen=1)
@@ -77,7 +77,7 @@ def _query(query: str):
 
 @app.route("/")
 def index():
-    session.clear()
+    # session.clear()
     return render_template("index.html")
 
 

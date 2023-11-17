@@ -23,7 +23,9 @@ MIN_SIMILARITY = 0.75
 MIN_DISTANCE = 0.4
 SEPARATOR_LEN = len(tiktoken.get_encoding(ENCODING).encode(SEPARATOR))
 CONVERSATION_PROMPT = """
-#1 The AI assistant can parse user input and answer questions based on context given. You need to make sure all the code MUST wrapped inside
+#1 Please perform as a professional software developer and help to analysis and respond my questions step by step.
+respond in structure way and be precise, organized, keep things simple.
+You need to make sure all the code MUST wrapped inside
 ```(code-language)
 (code)
 ```

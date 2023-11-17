@@ -18,8 +18,8 @@ $(document).ready(function() {
 
     socket.on("connect", function() {
         console.log("Connected to the server.");
-        addMessageRow("allison");
-        formatMessage("Server connected. How may I assist you today?", true);
+        //addMessageRow("allison");
+        //formatMessage("Server connected. How may I assist you today?", true);
         activeDiv = null;
         currentMsg = "";
 
@@ -28,23 +28,23 @@ $(document).ready(function() {
 
     socket.on("disconnect", () => {
         console.log("Connection closed");
-        addMessageRow("allison");
-        formatMessage("Connection closed", true);
+        //addMessageRow("allison");
+        //formatMessage("Connection closed", true);
         stopLoading();
     });
 
     socket.on("connect_error", (error) => {
         console.log("Connection error:", error);
-        addMessageRow("allison");
-        formatMessage("Connection error: " + error, true);
+        //addMessageRow("allison");
+        //formatMessage("Connection error: " + error, true);
 
         stopLoading();
     });
 
     socket.on("connect_timeout", () => {
         console.log("Connection timeout");
-        addMessageRow("allison");
-        formatMessage("Connection timeout", true);
+        //addMessageRow("allison");
+        //formatMessage("Connection timeout", true);
 
         stopLoading();
     });
